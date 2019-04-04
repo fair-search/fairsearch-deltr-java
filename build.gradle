@@ -1,0 +1,108 @@
+buildscript {
+
+    repositories {
+        mavenCentral()
+        jcenter()
+        mavenLocal()
+    }
+
+    dependencies {
+        classpath 'com.bmuschko:gradle-nexus-plugin:2.3.1'
+        classpath "org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.8.2"
+    }
+}
+
+group 'com.github.fair-search'
+version '1.0.0'
+
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+apply plugin: 'idea'
+apply plugin: 'com.bmuschko.nexus'
+apply plugin: 'com.github.kt3k.coveralls'
+
+sourceCompatibility = 1.8
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'DELTR lib',
+                'Implementation-Version': version
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+dependencies {
+    compile "org.apache.lucene:lucene-expressions:7.1.0"
+
+    compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.8.10'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile group: 'com.mashape.unirest', name: 'unirest-java', version: '1.4.9'
+    testCompile group: 'org.apache.lucene', name: 'lucene-test-framework', version: '7.1.0'
+    testCompile 'pl.pragmatists:JUnitParams:1.1.1'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId 'com.github.fair-search'
+            artifactId 'fairsearchdeltr-java'
+            version '1.0.0'
+
+            from components.java
+        }
+    }
+}
+
+modifyPom {
+    project {
+        name 'Fair Search DELTR'
+        description 'A Java library for disparate exposure in ranking (a learning to rank approach)'
+        url 'https://github.com/fair-search/fairsearchdeltr-java'
+        inceptionYear '2018'
+        scm {
+            url 'https://github.com/fair-search/fairsearchdeltr-java'
+            connection 'scm:https://github.com/fair-search/fairsearchdeltr-java.git'
+            developerConnection 'scm:git@github.com:fair-search/fairsearchdeltr-java.git'
+        }
+        licenses {
+            license {
+                name 'The Apache Software License, Version 2.0'
+                url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                distribution 'repo'
+            }
+        }
+        developers {
+            developer {
+                id 'ivan.kitanovski'
+                name 'Ivan Kitanovski'
+                email 'ivan.kitanovski@gmail.com'
+            }
+        }
+    }
+}
+extraArchive {
+    sources = true
+    tests = true
+    javadoc = true
+}
+nexus {
+    sign = true
+    repositoryUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2'
+    snapshotRepositoryUrl = 'https://oss.sonatype.org/content/repositories/snapshots'
+}
+
+//nexusStaging {
+//    packageGroup = "org.github.fair-search" //optional if packageGroup == project.getGroup()
+//    stagingProfileId = "org.github.fair-search" //when not defined will be got from server using "packageGroup"
+//}
