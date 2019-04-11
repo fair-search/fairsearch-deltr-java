@@ -1,13 +1,11 @@
 package com.github.fairsearch.deltr;
 
-import ciir.umass.edu.learning.RANKER_TYPE;
-import ciir.umass.edu.learning.RankList;
-import ciir.umass.edu.learning.Ranker;
-import ciir.umass.edu.learning.RankerFactory;
-import ciir.umass.edu.learning.RankerTrainer;
-import org.apache.lucene.search.TopDocs;
+import com.github.fairsearch.deltr.models.DeltrDoc;
+import com.github.fairsearch.deltr.models.DeltrTopDocs;
+import com.google.common.primitives.Doubles;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -27,6 +25,8 @@ public class Deltr {
     private double initVar; // range of values for initialization of weights
 
     private boolean standardize; // boolean indicating whether the data should be standardized or not
+
+    private double[] omega = null;
 
     /**
      *  Disparate Exposure in Learning To Rank
@@ -62,16 +62,84 @@ public class Deltr {
 
     /**
      *  Trains a DELTR model on a given training set
-     * @param ranks list of TopDocs (query -> documents) containing `com.github.fairsearch.deltr.DeltrDoc`
-     *             i.e. higher scores are better
+     * @param ranks list of DeltrTopDocs (query -> documents) containing `com.github.fairsearch.deltr.models.DeltrDoc`
+     *              instance implementations
      */
-    public void train(List<TopDocs> ranks) {
-        //
+    public void train(List<DeltrTopDocs> ranks) {
+        // create the trainer
+        Trainer trainer = new Trainer(this.gamma, this.numberOfIterations, this.learningRate, this.lambda, this.initVar);
+
+        //parse the data for training
+        TrainerData trainerData = null;
+        for(DeltrTopDocs docs : ranks) {
+            TrainerData current = prepareData(docs);
+            if(trainerData == null) {
+                trainerData = current;
+            } else {
+                trainerData.append(current);
+            }
+        }
+
+        //TODO: Check if storeLosses is needed
+        this.omega = trainer.train(trainerData.queryIds, trainerData.protectedElementFeature,
+                trainerData.featureMatrix, trainerData.trainingScores, true);
     }
 
-    public TopDocs rank(TopDocs docs) {
-        TopDocs result = null;
+    /**
+     * Uses the trained DELTR model to rank the prediction set
+     * @param docs          the prediction set to be (re)ranked
+     * @return
+     */
+    public DeltrTopDocs rank(DeltrTopDocs docs) {
+        //check if the model is created
+        if(this.omega == null) {
+            throw new NullPointerException("You need to train a model first!");
+        }
 
+        //re-calculate the judgement for each document
+        for(DeltrDoc doc : docs.docs()) {
+            double dotProduct = 0;
+            for(int i=0; i<doc.size(); i++) {
+                dotProduct += doc.feature(i) * this.omega[i];
+            }
+            doc.rejudge(dotProduct);
+        }
+
+        //re-order the docs
+        docs.docs().sort((o1, o2) -> {
+            if(o1.judgement() < o2.judgement())
+                return 1;
+            else if(o1.judgement() > o2.judgement())
+                return -1;
+            return 0;
+        });
+
+        return docs;
+    }
+
+    private TrainerData prepareData(DeltrTopDocs docs) {
+        TrainerData result = new TrainerData();
+
+        //create the array of query ids
+        result.queryIds = new int[docs.size()];
+        Arrays.fill(result.queryIds, docs.id());
+
+        //initialize the protected element feature and feature matrix
+        result.protectedElementFeature = new int[docs.size()];
+        result.featureMatrix = Nd4j.create(docs.size(), docs.doc(0).size());
+
+        //initialize this only if it's a training set
+        result.trainingScores = Nd4j.create(docs.size(), 1);
+
+        for(int i=0; i<docs.size(); i++) {
+            DeltrDoc doc = docs.doc(i);
+            //assign the protected element feature and feature matrix
+            result.protectedElementFeature[i] = doc.isProtected() ? 1 : 0;
+            result.featureMatrix.putRow(i, Nd4j.create(Doubles.toArray(doc.features())));
+
+            //add the training judgement for this document
+            result.trainingScores.putScalar(i, doc.judgement());
+        }
         return result;
     }
 
@@ -79,5 +147,30 @@ public class Deltr {
 
     }
 
+    private static class TrainerData {
+        private int[] queryIds;
+        private int[] protectedElementFeature;
+        private INDArray featureMatrix;
+        private INDArray trainingScores;
 
+        private TrainerData append(TrainerData data) {
+            //copy query data
+            int[] tmp = queryIds;
+            queryIds = new int[tmp.length + data.queryIds.length];
+            System.arraycopy(data, 0, queryIds, tmp.length, data.queryIds.length);
+
+            //copy protected feature data
+            tmp = protectedElementFeature;
+            protectedElementFeature = new int[tmp.length + data.protectedElementFeature.length];
+            System.arraycopy(data, 0, protectedElementFeature, tmp.length, data.protectedElementFeature.length);
+
+            //copy feature matrix and training scores (if any)
+            for(int i=0; i<data.featureMatrix.rows(); i++) {
+                featureMatrix.addRowVector(data.featureMatrix.getRow(i));
+                if(trainingScores != null && data.trainingScores != null)
+                    trainingScores.addRowVector(data.trainingScores.getRow(i));
+            }
+            return this;
+        }
+    }
 }

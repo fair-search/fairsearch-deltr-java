@@ -29,7 +29,7 @@ public class DeltrTests {
     public void testNd4j() {
         int nRows = 3;
         int nColumns = 5;
-        INDArray allRands = Nd4j.rand(nRows, nColumns);
+        INDArray allRands = Nd4j.rand(1, nColumns);
         INDArray allOnes = Nd4j.ones(nColumns, 1);
         INDArray allZeros = Nd4j.zeros(nRows, nColumns);
         System.out.println(allRands.mmul(allOnes));

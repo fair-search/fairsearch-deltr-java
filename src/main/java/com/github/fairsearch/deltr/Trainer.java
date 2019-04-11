@@ -1,11 +1,11 @@
 package com.github.fairsearch.deltr;
 
+import com.github.fairsearch.deltr.models.TrainStep;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.ops.transforms.Transforms;
 import org.nd4j.linalg.util.NDArrayUtil;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -21,19 +21,17 @@ public class Trainer {
     private double lambda; // regularization constant
     private double initVar; // initializer for the weights
 
-    private int[] protectedIdxs; // list of protected index
     private Map<String, INDArray> dataPerQuery;
 
     private List<TrainStep> log;
 
     public Trainer(double gamma, int numberOfIterations, double learningRate, double lambda,
-                   double initVar, int[] protectedIdxs) {
+                   double initVar) {
         this.gamma = gamma;
         this.numberOfIterations = numberOfIterations;
         this.learningRate = learningRate;
         this.lambda = lambda;
         this.initVar = initVar;
-        this.protectedIdxs = protectedIdxs;
 
         this.dataPerQuery = new HashMap<String, INDArray>();
 
@@ -43,20 +41,21 @@ public class Trainer {
         }
     }
 
-    private void train(int[] queryIds, INDArray featureMatrix, INDArray trainingScores) {
-        train(queryIds, featureMatrix, trainingScores, false);
+    private double[] train(int[] queryIds, int[] protectedElementFeature,  INDArray featureMatrix, INDArray trainingScores) {
+        return train(queryIds, protectedElementFeature, featureMatrix, trainingScores, false);
     }
 
-    private void train(int[] queryIds, INDArray featureMatrix, INDArray trainingScores, boolean storeLosses) {
+    public double[] train(int[] queryIds, int[] protectedElementFeature, INDArray featureMatrix, INDArray trainingScores,
+                       boolean storeLosses) {
         int numberOfElements = featureMatrix.shape()[0]; // rows are elements
         int numberOfFeatures = featureMatrix.shape()[1]; // columns are features
 
         //initialize data per query
         Arrays.stream(queryIds).parallel().forEach((q) -> {
             this.dataPerQuery.put(keyGen(q, trainingScores), findItemsPerGroupPerQuery(trainingScores,
-                    queryIds, q, this.protectedIdxs).getJudgementsPerQuery());
+                    queryIds, q, protectedElementFeature).getJudgementsPerQuery());
             this.dataPerQuery.put(keyGen(q, featureMatrix), findItemsPerGroupPerQuery(featureMatrix,
-                    queryIds, q, this.protectedIdxs).getJudgementsPerQuery());
+                    queryIds, q, protectedElementFeature).getJudgementsPerQuery());
         });
 
         //initialize omega
@@ -73,18 +72,18 @@ public class Trainer {
             Map<String, INDArray> dataPerQueryPredicted = new HashMap<String, INDArray>();
             Arrays.stream(queryIds).parallel().forEach((q) -> {
                 dataPerQueryPredicted.put(keyGen(q, predictedScores), findItemsPerGroupPerQuery(predictedScores,
-                        queryIds, q, this.protectedIdxs).getJudgementsPerQuery());
+                        queryIds, q, protectedElementFeature).getJudgementsPerQuery());
 
             });
 
             //get the cost/loss for all queries
             TrainStep trainStep = calculateCost(trainingScores, predictedScores, queryIds,
-                    this.protectedIdxs, dataPerQueryPredicted);
+                    protectedElementFeature, dataPerQueryPredicted);
 
             INDArray J = trainStep.getCost().add(predictedScores.mul(predictedScores).mul(this.lambda));
 
             INDArray grad = calculateGradient(featureMatrix, trainingScores, predictedScores, queryIds,
-                    this.protectedIdxs, dataPerQueryPredicted);
+                    protectedElementFeature, dataPerQueryPredicted);
 
             omega = omega.sub(grad.sum(0).mul(this.learningRate));
             omegaConverge.put(t, omega.transpose());
@@ -98,12 +97,12 @@ public class Trainer {
 
             this.log.add(trainStep);
         }
+        return omega.data().asDouble();
     }
 
     private INDArray calculateGradient(INDArray featureMatrix, INDArray trainingScores, INDArray predictedScores,
                                        int[] queryIds, int[] protectedIdxs,
                                        Map<String, INDArray> dataPerQueryPredicted) {
-        //TODO: implement this
         INDArray gradient = Nd4j.create(predictedScores.shape());
         Arrays.stream(queryIds).parallel().forEach((q) -> {
             double l1 = 1.0 / Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores)))
