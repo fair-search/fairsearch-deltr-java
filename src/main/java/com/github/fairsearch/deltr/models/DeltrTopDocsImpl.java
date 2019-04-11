@@ -1,9 +1,8 @@
-package com.github.fairsearch.deltr;
+package com.github.fairsearch.deltr.models;
 
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -14,6 +13,11 @@ public class DeltrTopDocsImpl extends TopDocs implements DeltrTopDocs {
 
     public DeltrTopDocsImpl(int questionId, long totalHits, ScoreDoc[] scoreDocs, float maxScore) {
         super(totalHits, scoreDocs, maxScore);
+
+//        this.scoreDocs = new ScoreDoc[deltrDocs.length];
+//        for(int i=0; i<deltrDocs.length; i++) {
+//            this.scoreDocs[i] = (ScoreDoc)deltrDocs[i];
+//        }
 
         this.questionId = questionId;
     }

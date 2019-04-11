@@ -1,4 +1,4 @@
-package com.github.fairsearch.deltr;
+package com.github.fairsearch.deltr.models;
 
 import org.nd4j.linalg.api.ndarray.INDArray;
 
