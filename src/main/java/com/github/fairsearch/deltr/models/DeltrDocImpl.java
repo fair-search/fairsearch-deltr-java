@@ -63,6 +63,6 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
 
     @Override
     public boolean isProtected() {
-        return false;
+        return this.isProtected;
     }
 }

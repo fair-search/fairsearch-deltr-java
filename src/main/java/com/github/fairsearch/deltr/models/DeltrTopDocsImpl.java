@@ -11,6 +11,9 @@ public class DeltrTopDocsImpl extends TopDocs implements DeltrTopDocs {
 
     private int questionId;
 
+    public DeltrTopDocsImpl(int questionId) {
+        super(0, new ScoreDoc[0], 0);
+    }
     public DeltrTopDocsImpl(int questionId, long totalHits, ScoreDoc[] scoreDocs, float maxScore) {
         super(totalHits, scoreDocs, maxScore);
 

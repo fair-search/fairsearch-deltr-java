@@ -2,6 +2,7 @@ package com.github.fairsearch.deltr;
 
 import com.github.fairsearch.deltr.models.DeltrDoc;
 import com.github.fairsearch.deltr.models.DeltrTopDocs;
+import com.github.fairsearch.deltr.models.TrainStep;
 import com.google.common.primitives.Doubles;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
@@ -27,6 +28,7 @@ public class Deltr {
     private boolean standardize; // boolean indicating whether the data should be standardized or not
 
     private double[] omega = null;
+    private List<TrainStep> log = null;
 
     /**
      *  Disparate Exposure in Learning To Rank
@@ -44,6 +46,16 @@ public class Deltr {
         this.gamma = gamma;
 
         this.numberOfIterations = 3000;
+        this.learningRate = 0.001f;
+        this.lambda = 0.001f;
+        this.initVar = 0.01f;
+        this.standardize = false;
+    }
+
+    public Deltr(double gamma, int numberOfIterations){
+        this.gamma = gamma;
+
+        this.numberOfIterations = numberOfIterations;
         this.learningRate = 0.001f;
         this.lambda = 0.001f;
         this.initVar = 0.01f;
@@ -83,6 +95,8 @@ public class Deltr {
         //TODO: Check if storeLosses is needed
         this.omega = trainer.train(trainerData.queryIds, trainerData.protectedElementFeature,
                 trainerData.featureMatrix, trainerData.trainingScores, true);
+
+        this.log = trainer.getLog();
     }
 
     /**
@@ -143,10 +157,6 @@ public class Deltr {
         return result;
     }
 
-    public static void main(String[] args) {
-
-    }
-
     private static class TrainerData {
         private int[] queryIds;
         private int[] protectedElementFeature;
@@ -172,5 +182,13 @@ public class Deltr {
             }
             return this;
         }
+    }
+
+    public double[] getOmega() {
+        return omega;
+    }
+
+    public List<TrainStep> getLog() {
+        return this.log;
     }
 }

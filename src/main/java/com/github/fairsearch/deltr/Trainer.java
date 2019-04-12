@@ -4,8 +4,10 @@ import com.github.fairsearch.deltr.models.TrainStep;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.ops.transforms.Transforms;
+import org.nd4j.linalg.util.ArrayUtil;
 import org.nd4j.linalg.util.NDArrayUtil;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +41,8 @@ public class Trainer {
         if(this.gamma == 0) {
             this.noExposure = true;
         }
+
+        this.log = new ArrayList<>();
     }
 
     private double[] train(int[] queryIds, int[] protectedElementFeature,  INDArray featureMatrix, INDArray trainingScores) {
@@ -105,15 +109,22 @@ public class Trainer {
                                        Map<String, INDArray> dataPerQueryPredicted) {
         INDArray gradient = Nd4j.create(predictedScores.shape());
         Arrays.stream(queryIds).parallel().forEach((q) -> {
-            double l1 = 1.0 / Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores)))
+            //L2
+            double l2 = 1.0 / Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores)))
                     .sumNumber().doubleValue();
-            INDArray res = this.dataPerQuery.get(keyGen(q,trainingScores))
-                    .mmul(Transforms.exp(this.dataPerQuery.get(keyGen(q,predictedScores)))).transpose()
-                    .mul(l1);
-            res.sub(this.dataPerQuery.get(keyGen(q,trainingScores))
-                    .mmul(topp(this.dataPerQuery.get(keyGen(q,predictedScores)))).transpose());
+            //L3
+            INDArray res = this.dataPerQuery.get(keyGen(q,trainingScores)).transpose()
+                    .mmul(Transforms.exp(dataPerQueryPredicted.get(keyGen(q,predictedScores)))).transpose()
+                    .mul(l2);
+            //L1
+            res.sub(this.dataPerQuery.get(keyGen(q,trainingScores)).transpose()
+                    .mmul(topp(this.dataPerQuery.get(keyGen(q,trainingScores)))).transpose());
+
+            //L deriv
             res.div(Math.log(predictedScores.length()));
             gradient.addRowVector(res);
+
+            //TODO: add no exposure scenario
         });
 
         return gradient;
@@ -139,7 +150,7 @@ public class Trainer {
     private INDArray calculateLoss(int whichQuery, INDArray trainingScores, INDArray predictedScores,
                                    int[] queryIds, int[] protectedIdxs,
                                    Map<String, INDArray> dataPerQueryPredicted) {
-        INDArray result = topp(this.dataPerQuery.get(keyGen(whichQuery, trainingScores)))
+        INDArray result = topp(this.dataPerQuery.get(keyGen(whichQuery, trainingScores))).transpose()
                 .mmul(Transforms.log(topp(dataPerQueryPredicted.get(keyGen(whichQuery, predictedScores)))))
                 .div(Math.log(predictedScores.length()))
                 .mul(-1);
@@ -177,13 +188,20 @@ public class Trainer {
         INDArray judgementsPerQuery = findItemsPerQuery(data, queryIds, whichQuery);
         
         double[] vals = new double[protectedIdxs.length];
+        List<Integer> protectedElements = new ArrayList<>();
+        List<Integer> nonprotectedElements = new ArrayList<>();
         for(int i=0; i<protectedIdxs.length; i++) {
             vals[i] = (double)protectedIdxs[i];
+            if(protectedIdxs[i] == 0) {
+                nonprotectedElements.add(i);
+            } else {
+                protectedElements.add(i);
+            }
         }
-        INDArray protIdxPerQuery = findItemsPerQuery(Nd4j.create(vals), queryIds, whichQuery);
+//        INDArray protFeaturePerQuery = findItemsPerQuery(Nd4j.create(vals), queryIds, whichQuery);
 
-        INDArray protectedItemsPerQuery = judgementsPerQuery.getRows(NDArrayUtil.toInts(protIdxPerQuery));
-        INDArray nonprotectedItemsPerQuery = judgementsPerQuery.sub(protectedItemsPerQuery);
+        INDArray protectedItemsPerQuery = judgementsPerQuery.getRows(ArrayUtil.toArray(protectedElements));
+        INDArray nonprotectedItemsPerQuery = judgementsPerQuery.getRows(ArrayUtil.toArray(nonprotectedElements));
 
         return new ItemGroup(judgementsPerQuery, protectedItemsPerQuery, nonprotectedItemsPerQuery);
     }
@@ -203,43 +221,42 @@ public class Trainer {
     private static INDArray topp(INDArray data) {
         return Transforms.exp(data).div(Transforms.exp(data).sumNumber());
     }
-}
 
+    private static class ItemGroup {
+        private INDArray judgementsPerQuery;
+        private INDArray protectedItemsPerQuery;
+        private INDArray nonprotectedItemsPerQuery;
 
-class ItemGroup {
-    private INDArray judgementsPerQuery;
-    private INDArray protectedItemsPerQuery;
-    private INDArray nonprotectedItemsPerQuery;
+        private int code;
 
-    private int code;
+        public ItemGroup(INDArray judgementsPerQuery, INDArray protectedItemsPerQuery, INDArray nonprotectedItemsPerQuery) {
+            this.judgementsPerQuery = judgementsPerQuery;
+            this.protectedItemsPerQuery = protectedItemsPerQuery;
+            this.nonprotectedItemsPerQuery = nonprotectedItemsPerQuery;
+        }
 
-    public ItemGroup(INDArray judgementsPerQuery, INDArray protectedItemsPerQuery, INDArray nonprotectedItemsPerQuery) {
-        this.judgementsPerQuery = judgementsPerQuery;
-        this.protectedItemsPerQuery = protectedItemsPerQuery;
-        this.nonprotectedItemsPerQuery = nonprotectedItemsPerQuery;
+        public INDArray getJudgementsPerQuery() {
+            return judgementsPerQuery;
+        }
 
-//        this.code = (int)(Math.random() * Integer.MAX_VALUE);
-    }
+        public INDArray getProtectedItemsPerQuery() {
+            return protectedItemsPerQuery;
+        }
 
-    public INDArray getJudgementsPerQuery() {
-        return judgementsPerQuery;
-    }
+        public INDArray getNonprotectedItemsPerQuery() {
+            return nonprotectedItemsPerQuery;
+        }
 
-    public INDArray getProtectedItemsPerQuery() {
-        return protectedItemsPerQuery;
-    }
-
-    public INDArray getNonprotectedItemsPerQuery() {
-        return nonprotectedItemsPerQuery;
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 23;
-        int result = 1;
-        result = prime * result + (judgementsPerQuery == null ? 0 : judgementsPerQuery.hashCode());
-        result = prime * result + (protectedItemsPerQuery == null ? 0 : protectedItemsPerQuery.hashCode());
-        result = prime * result + (nonprotectedItemsPerQuery == null ? 0 : nonprotectedItemsPerQuery.hashCode());
-        return result;
+        @Override
+        public int hashCode() {
+            final int prime = 23;
+            int result = 1;
+            result = prime * result + (judgementsPerQuery == null ? 0 : judgementsPerQuery.hashCode());
+            result = prime * result + (protectedItemsPerQuery == null ? 0 : protectedItemsPerQuery.hashCode());
+            result = prime * result + (nonprotectedItemsPerQuery == null ? 0 : nonprotectedItemsPerQuery.hashCode());
+            return result;
+        }
     }
 }
+
+

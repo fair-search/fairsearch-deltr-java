@@ -1,21 +1,25 @@
 package com.github.fairsearch.deltr;
 
-import ciir.umass.edu.features.FeatureManager;
-import ciir.umass.edu.learning.RANKER_TYPE;
-import ciir.umass.edu.learning.RankList;
-import ciir.umass.edu.learning.Ranker;
-import ciir.umass.edu.learning.RankerTrainer;
-import ciir.umass.edu.metric.METRIC;
-import ciir.umass.edu.metric.MetricScorerFactory;
+import com.github.fairsearch.deltr.models.DeltrDoc;
+import com.github.fairsearch.deltr.models.DeltrDocImpl;
+import com.github.fairsearch.deltr.models.DeltrTopDocs;
+import com.github.fairsearch.deltr.models.DeltrTopDocsImpl;
+import com.github.fairsearch.deltr.models.TrainStep;
+import com.sun.javafx.scene.shape.PathUtils;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.cpu.nativecpu.NDArray;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.ops.transforms.Transforms;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -46,27 +50,103 @@ public class DeltrTests {
     }
 
     @Test
-    public void testRanker() {
-        Ranker ranker;
-        RankerTrainer trainer = new RankerTrainer();
-        MetricScorerFactory mcf = new MetricScorerFactory();
+    @Parameters({"1, test_data_1.csv"})
+    public void testTrainFromCSV(double gamma, String fileName) {
+        String filePath = getClass().getResource(String.format("/fixtures/%s", fileName)).getFile();
+        List<DeltrTopDocs> ranks = prepareData(filePath);
 
-        String file = getClass().getResource("/fixtures/test_data_1.csv").getFile();
-        List<RankList> rankLists = FeatureManager.readInput(file);
-        for(RankList rnk : rankLists) {
-            for(int i=0; i < rnk.size(); i++) {
-                System.out.println(rnk.get(i));
+        Deltr deltr = new Deltr(gamma, 10);
+
+        deltr.train(ranks);
+
+        assert deltr.getOmega() != null;
+        assert deltr.getLog() != null;
+
+        if(deltr.getLog().size() > 1) {
+            TrainStep prev = deltr.getLog().get(0);
+            for (int i=1; i<deltr.getLog().size(); i++) {
+                System.out.println(deltr.getLog().get(i).getTotalCost() + " " + prev.getTotalCost());
+                assert deltr.getLog().get(i).getTotalCost() <= prev.getTotalCost();
+                prev = deltr.getLog().get(i);
             }
+        } else {
+            assert deltr.getLog().get(0) != null;
         }
-
-        System.out.println(rankLists);
-
-        ranker = trainer.train(RANKER_TYPE.LISTNET, rankLists, FeatureManager.getFeatureFromSampleVector(rankLists), mcf.createScorer(METRIC.ERR));
-
-        System.out.println(">>>>" + ranker.getFeatures());
-        Arrays.stream(ranker.getFeatures()).forEach(x -> System.out.print(x + " "));
-        System.out.println(">>>>" + ranker.model());
     }
+
+    private List<DeltrTopDocs> prepareData(String filePath) {
+        List<DeltrTopDocs> ranks = new ArrayList<>();
+
+        String line = null;
+
+        int currentQueryId = -1;
+        int currentDocId = 0;
+
+        DeltrTopDocs docs = null;
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+
+            String[] header = br.readLine().split(",");
+
+            while ((line = br.readLine()) != null) {
+                String[] row = line.split(",");
+                int queryId = Integer.parseInt(row[0]);
+                int gender = Integer.parseInt(row[1]);
+                double feature = Double.parseDouble(row[2]);
+                float judgement = Float.parseFloat(row[3]);
+
+                if(queryId != currentQueryId) {
+                    if(docs != null) {
+                        ((TopDocs)docs).totalHits = currentDocId;
+                        ranks.add(docs);
+                    }
+                    currentQueryId = queryId;
+                    currentDocId = 0;
+
+                    docs = new DeltrTopDocsImpl(queryId);
+                    // the first element of the list should be the highest ranking
+                    ((TopDocs)docs).setMaxScore(judgement);
+                }
+
+                DeltrDocImpl doc = new DeltrDocImpl(currentDocId, judgement, gender == 1);
+                doc.addFeature("0", feature);
+
+                currentDocId += 1;
+
+                ScoreDoc[] tmp = ((DeltrTopDocsImpl)docs).scoreDocs;
+                ((DeltrTopDocsImpl)docs).scoreDocs = new ScoreDoc[tmp.length + 1];
+                System.arraycopy(tmp, 0, ((DeltrTopDocsImpl)docs).scoreDocs, 0 ,tmp.length);
+                ((DeltrTopDocsImpl)docs).scoreDocs[tmp.length] = doc;
+
+            }
+            ranks.add(docs);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return ranks;
+    }
+
+    @Test
+//    public void testRanker() {
+//        Ranker ranker;
+//        RankerTrainer trainer = new RankerTrainer();
+//        MetricScorerFactory mcf = new MetricScorerFactory();
+//
+//        String file = getClass().getResource("/fixtures/test_data_2.csv").getFile();
+//        List<RankList> rankLists = FeatureManager.readInput(file);
+//        for(RankList rnk : rankLists) {
+//            for(int i=0; i < rnk.size(); i++) {
+//                System.out.println(rnk.get(i));
+//            }
+//        }
+//
+//        System.out.println(rankLists);
+//
+//        ranker = trainer.train(RANKER_TYPE.LISTNET, rankLists, FeatureManager.getFeatureFromSampleVector(rankLists), mcf.createScorer(METRIC.ERR));
+//
+//        System.out.println(">>>>" + ranker.getFeatures());
+//        Arrays.stream(ranker.getFeatures()).forEach(x -> System.out.print(x + " "));
+//        System.out.println(">>>>" + ranker.model());
+//    }
 
     public Object[] parametersTestCreateAdjustedMTable() {
         List<Object> parameters = new ArrayList<Object>();
