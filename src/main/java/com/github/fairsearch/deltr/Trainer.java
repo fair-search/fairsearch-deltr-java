@@ -5,13 +5,13 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.ops.transforms.Transforms;
 import org.nd4j.linalg.util.ArrayUtil;
-import org.nd4j.linalg.util.NDArrayUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Trainer {
 
@@ -72,7 +72,7 @@ public class Trainer {
             //calculate scores
             final INDArray predictedScores = featureMatrix.mmul(omega).reshape(numberOfElements, 1);
 
-            //calcuate data per query predicted
+            //calculate data per query predicted
             Map<String, INDArray> dataPerQueryPredicted = new HashMap<String, INDArray>();
             Arrays.stream(queryIds).parallel().forEach((q) -> {
                 dataPerQueryPredicted.put(keyGen(q, predictedScores), findItemsPerGroupPerQuery(predictedScores,
@@ -104,30 +104,90 @@ public class Trainer {
         return omega.data().asDouble();
     }
 
-    private INDArray calculateGradient(INDArray featureMatrix, INDArray trainingScores, INDArray predictedScores,
+    /**
+     * calculates local gradients of current feature weights
+     */
+    private INDArray calculateGradient(INDArray trainingFeatures, INDArray trainingScores, INDArray predictedScores,
                                        int[] queryIds, int[] protectedIdxs,
                                        Map<String, INDArray> dataPerQueryPredicted) {
         INDArray gradient = Nd4j.create(predictedScores.shape());
-        Arrays.stream(queryIds).parallel().forEach((q) -> {
+        AtomicInteger atomicInteger = new AtomicInteger(0);
+        Arrays.stream(queryIds).parallel().forEachOrdered((q) -> {
             //L2
             double l2 = 1.0 / Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores)))
                     .sumNumber().doubleValue();
             //L3
-            INDArray res = this.dataPerQuery.get(keyGen(q,trainingScores)).transpose()
-                    .mmul(Transforms.exp(dataPerQueryPredicted.get(keyGen(q,predictedScores)))).transpose()
+            INDArray res = this.dataPerQuery.get(keyGen(q, trainingFeatures)).transpose()
+                    .mmul(Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores)))).transpose()
                     .mul(l2);
             //L1
-            res.sub(this.dataPerQuery.get(keyGen(q,trainingScores)).transpose()
-                    .mmul(topp(this.dataPerQuery.get(keyGen(q,trainingScores)))).transpose());
+            res.subi(this.dataPerQuery.get(keyGen(q, trainingFeatures)).transpose()
+                    .mmul(topp(this.dataPerQuery.get(keyGen(q, trainingScores)))).transpose());
 
             //L deriv
-            res.div(Math.log(predictedScores.length()));
-            gradient.addRowVector(res);
+            res.divi(Math.log(predictedScores.length()));
 
             //TODO: add no exposure scenario
+            if(!this.noExposure) {
+                res.addi(normalizedToppProtDerivPerGroupDiff(trainingFeatures, predictedScores, queryIds, q, protectedIdxs)
+                        .mul(this.gamma)
+                        .mul(exposureDiff(predictedScores, queryIds, q, protectedIdxs)));
+            }
+
+            gradient.putRow(atomicInteger.getAndIncrement(), res);
         });
 
         return gradient;
+    }
+
+    /**
+     * calculates the difference of the normalized topp_prot derivative of the protected and non-protected groups
+     */
+    private INDArray normalizedToppProtDerivPerGroupDiff(INDArray trainingScores, INDArray predictedScores,
+                                                       int[] queryIds, int q, int[] protectedIdxs) {
+        ItemGroup trainGroup = findItemsPerGroupPerQuery(trainingScores, queryIds, q, protectedIdxs);
+        ItemGroup predictionsGroup = findItemsPerGroupPerQuery(predictedScores, queryIds, q, protectedIdxs);
+
+        INDArray u2 = normalizedToppProtDerivPerGroup(trainGroup.getNonprotectedItemsPerQuery(),
+                trainGroup.getJudgementsPerQuery(),
+                predictionsGroup.getNonprotectedItemsPerQuery(),
+                predictionsGroup.getJudgementsPerQuery());
+        INDArray u3 = normalizedToppProtDerivPerGroup(trainGroup.getProtectedItemsPerQuery(),
+                trainGroup.getJudgementsPerQuery(),
+                predictionsGroup.getProtectedItemsPerQuery(),
+                predictionsGroup.getJudgementsPerQuery());
+
+        return u2.sub(u3);
+    }
+
+    /**
+     * normalizes the results of the derivative of topp prot
+     */
+    private INDArray normalizedToppProtDerivPerGroup(INDArray groupFeatures, INDArray allFeatures,
+                                                     INDArray groupPredictions, INDArray allPredictions) {
+        INDArray derivative = toppProtFirstDerivative(groupFeatures, allFeatures, groupPredictions, allPredictions);
+
+        return derivative.sum(0).div(Math.log(2)).div(groupPredictions.length());
+    }
+
+    /**
+     * Derivative for topp prot in pieces
+     */
+    private INDArray toppProtFirstDerivative(INDArray groupFeatures, INDArray allFeatures,
+                                             INDArray groupPredictions, INDArray allPredictions) {
+        INDArray numerator1 = Transforms.exp(groupPredictions).transpose().mmul(groupFeatures);
+        double numerator2 = Transforms.exp(allPredictions).sumNumber().doubleValue();
+        double numerator3 = Transforms.exp(Transforms.exp(allPredictions)
+                .transpose()
+                .mmul(allFeatures))
+                .sumNumber().doubleValue();
+        double denominator = Math.pow(Transforms.exp(allPredictions).sumNumber().doubleValue(), 2);
+
+        INDArray results = numerator1.mul(numerator2)
+            .sub(Transforms.exp(groupPredictions).mul(numerator3))
+            .div(denominator);
+
+        return results;
     }
 
     private TrainStep calculateCost(INDArray trainingScores, INDArray predictedScores, int[] queryIds,
@@ -135,9 +195,15 @@ public class Trainer {
         //the cost has to be of the same shape as the predicted/training scores
         INDArray cost = Nd4j.create(predictedScores.shape());
 
-        Arrays.stream(queryIds).parallel().forEach((q) -> {
-            cost.addiRowVector(calculateLoss(q, trainingScores, predictedScores, queryIds, protectedIdxs,
-                    dataPerQueryPredicted));
+//        for(int i=0;i<queryIds.length;i++) {
+//            cost.putRow(i, calculateLoss(queryIds[i], trainingScores, predictedScores, queryIds, protectedIdxs,
+//                    dataPerQueryPredicted));
+//        }
+        AtomicInteger atomicInteger = new AtomicInteger(0);
+
+        Arrays.stream(queryIds).parallel().forEachOrdered((q) -> {
+            cost.putRow(atomicInteger.getAndIncrement(),
+                    calculateLoss(q, trainingScores, predictedScores, queryIds, protectedIdxs, dataPerQueryPredicted));
         });
 
         double lossStandard = cost.sumNumber().doubleValue();
@@ -147,6 +213,9 @@ public class Trainer {
         return new TrainStep(System.currentTimeMillis(), cost, lossStandard, lossExposure);
     }
 
+    /**
+     * Calculate loss for a given query
+     */
     private INDArray calculateLoss(int whichQuery, INDArray trainingScores, INDArray predictedScores,
                                    int[] queryIds, int[] protectedIdxs,
                                    Map<String, INDArray> dataPerQueryPredicted) {
@@ -155,29 +224,50 @@ public class Trainer {
                 .div(Math.log(predictedScores.length()))
                 .mul(-1);
 
-        if(this.noExposure) {
-            result.add(exposureDiff(predictedScores, queryIds, whichQuery, protectedIdxs) *
-                    exposureDiff(predictedScores, queryIds, whichQuery, protectedIdxs) * this.gamma);
+        if(!this.noExposure) {
+            result.addi(Math.pow(exposureDiff(predictedScores, queryIds, whichQuery, protectedIdxs), 2) * this.gamma);
         }
 
         return result;
     }
 
-    private double exposureDiff(INDArray predictedScores, int[] queryIds, int whichQuery, int[] protectedIdxs) {
-        ItemGroup itemGroup = findItemsPerGroupPerQuery(predictedScores, queryIds, whichQuery, protectedIdxs);
+    /**
+     * computes the exposure difference between protected and non-protected groups
+     * @param data              predictions
+     * @param queryIds          list of query IDs
+     * @param whichQuery        given query ID
+     * @param protectedIdxs     list states which item is protected or non-protected
+     * @return
+     */
+    private double exposureDiff(INDArray data, int[] queryIds, int whichQuery, int[] protectedIdxs) {
+        ItemGroup itemGroup = findItemsPerGroupPerQuery(data, queryIds, whichQuery, protectedIdxs);
 
-        double exposureProt = normlizedExposure(itemGroup.getProtectedItemsPerQuery(),
+        double exposureProt = normalizedExposure(itemGroup.getProtectedItemsPerQuery(),
                 itemGroup.getJudgementsPerQuery());
-        double exposureNProt = normlizedExposure(itemGroup.getNonprotectedItemsPerQuery(),
+        double exposureNProt = normalizedExposure(itemGroup.getNonprotectedItemsPerQuery(),
                 itemGroup.getJudgementsPerQuery());
 
         return Math.max(0, (exposureNProt - exposureProt));
     }
 
-    private double normlizedExposure(INDArray groupData, INDArray allData) {
-        return toppProt(groupData, allData).div(2).sumNumber().doubleValue() / groupData.length();
+    /**
+     * calculates the exposure of a group in the entire ranking
+     * @param groupData         redictions of relevance scores for one group
+     * @param allData           all predictions
+     * @return
+     */
+    private double normalizedExposure(INDArray groupData, INDArray allData) {
+        return toppProt(groupData, allData).div(Math.log(2)).sumNumber().doubleValue() / groupData.length();
     }
 
+    /**
+     * given a dataset of features what is the probability of being at the top position
+     * for one group (group_items) out of all items
+     * example: what is the probability of each female (or male respectively) item (group_items) to be in position 1
+     * @param groupData     vector of predicted scores of one group (protected or non-protected)
+     * @param allData       vector of predicted scores of all items
+     * @return
+     */
     private INDArray toppProt(INDArray groupData, INDArray allData) {
         return Transforms.exp(groupData).div(Transforms.exp(allData).sumNumber());
     }
@@ -218,6 +308,12 @@ public class Trainer {
         return log;
     }
 
+    /**
+     * computes the probability of a document being
+     * in the first position of the ranking
+     * @param data  all training judgments or all predictions
+     * @return      float value which is a probability
+     */
     private static INDArray topp(INDArray data) {
         return Transforms.exp(data).div(Transforms.exp(data).sumNumber());
     }
