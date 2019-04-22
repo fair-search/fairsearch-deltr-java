@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 public class Trainer {
 
@@ -122,19 +123,19 @@ public class Trainer {
                     .mul(l2);
             //L1
             res.subi(this.dataPerQuery.get(keyGen(q, trainingFeatures)).transpose()
-                    .mmul(topp(this.dataPerQuery.get(keyGen(q, trainingScores)))).transpose());
+                    .mmul(topp(this.dataPerQuery.get(keyGen(q, trainingScores)))));
 
             //L deriv
             res.divi(Math.log(predictedScores.length()));
 
-            //TODO: add no exposure scenario
             if(!this.noExposure) {
                 res.addi(normalizedToppProtDerivPerGroupDiff(trainingFeatures, predictedScores, queryIds, q, protectedIdxs)
                         .mul(this.gamma)
+                        .mul(2)
                         .mul(exposureDiff(predictedScores, queryIds, q, protectedIdxs)));
             }
 
-            gradient.putRow(atomicInteger.getAndIncrement(), res);
+            gradient.putRow(atomicInteger.getAndIncrement(), res.transpose());
         });
 
         return gradient;
@@ -297,7 +298,7 @@ public class Trainer {
     }
 
     private INDArray findItemsPerQuery(INDArray data, int[] queryIds, int whichQuery) {
-        return data.getRows(Arrays.stream(queryIds).filter((x) -> x == whichQuery).toArray());
+        return data.getRows(IntStream.range(0, queryIds.length).filter((x) -> queryIds[x] == whichQuery).toArray());
     }
 
     private static String keyGen(int q, INDArray data) {
