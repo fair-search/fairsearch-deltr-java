@@ -92,9 +92,8 @@ public class Deltr {
             }
         }
 
-        //TODO: Check if storeLosses is needed
         this.omega = trainer.train(trainerData.queryIds, trainerData.protectedElementFeature,
-                trainerData.featureMatrix, trainerData.trainingScores, true);
+                trainerData.featureMatrix, trainerData.trainingScores);
 
         this.log = trainer.getLog();
     }

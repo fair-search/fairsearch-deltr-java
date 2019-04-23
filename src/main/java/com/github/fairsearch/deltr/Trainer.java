@@ -2,9 +2,12 @@ package com.github.fairsearch.deltr;
 
 import com.github.fairsearch.deltr.models.TrainStep;
 import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.api.ops.impl.shape.Broadcast;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.ops.transforms.Transforms;
+import org.nd4j.linalg.string.NDArrayStrings;
 import org.nd4j.linalg.util.ArrayUtil;
+import org.nd4j.linalg.util.NDArrayUtil;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,12 +49,7 @@ public class Trainer {
         this.log = new ArrayList<>();
     }
 
-    private double[] train(int[] queryIds, int[] protectedElementFeature,  INDArray featureMatrix, INDArray trainingScores) {
-        return train(queryIds, protectedElementFeature, featureMatrix, trainingScores, false);
-    }
-
-    public double[] train(int[] queryIds, int[] protectedElementFeature, INDArray featureMatrix, INDArray trainingScores,
-                       boolean storeLosses) {
+    public double[] train(int[] queryIds, int[] protectedElementFeature, INDArray featureMatrix, INDArray trainingScores) {
         int numberOfElements = featureMatrix.shape()[0]; // rows are elements
         int numberOfFeatures = featureMatrix.shape()[1]; // columns are features
 
@@ -71,7 +69,7 @@ public class Trainer {
 
         for(int t=0; t<this.numberOfIterations; t++){
             //calculate scores
-            final INDArray predictedScores = featureMatrix.mmul(omega).reshape(numberOfElements, 1);
+            INDArray predictedScores = featureMatrix.mmul(omega).reshape(numberOfElements, 1);
 
             //calculate data per query predicted
             Map<String, INDArray> dataPerQueryPredicted = new HashMap<String, INDArray>();
@@ -90,16 +88,19 @@ public class Trainer {
             INDArray grad = calculateGradient(featureMatrix, trainingScores, predictedScores, queryIds,
                     protectedElementFeature, dataPerQueryPredicted);
 
+            //add additional items in trainStep
+            trainStep.setOmega(omega);
+            trainStep.setGrad(grad);
+            trainStep.setTotalCost(trainStep.getCost().sumNumber().doubleValue());
+
+            //recalculate omega
             omega = omega.sub(grad.sum(0).mul(this.learningRate));
-            omegaConverge.put(t, omega.transpose());
+            omega = omega.reshape(numberOfFeatures, 1);
+            omegaConverge.putRow(t, omega.transpose());
 
             costConvergeJ.putScalar(t, J.sum(0).getDouble(0));
 
-            //add additional items in trainStep
-            trainStep.setGrad(grad);
-            trainStep.setOmega(omega);
-            trainStep.setTotalCost(trainStep.getCost().sumNumber().doubleValue());
-
+            // add trainStep to log
             this.log.add(trainStep);
         }
         return omega.data().asDouble();
@@ -111,7 +112,7 @@ public class Trainer {
     private INDArray calculateGradient(INDArray trainingFeatures, INDArray trainingScores, INDArray predictedScores,
                                        int[] queryIds, int[] protectedIdxs,
                                        Map<String, INDArray> dataPerQueryPredicted) {
-        INDArray gradient = Nd4j.create(predictedScores.shape());
+        INDArray gradient = Nd4j.create(trainingFeatures.shape());
         AtomicInteger atomicInteger = new AtomicInteger(0);
         Arrays.stream(queryIds).parallel().forEachOrdered((q) -> {
             //L2
@@ -119,23 +120,25 @@ public class Trainer {
                     .sumNumber().doubleValue();
             //L3
             INDArray res = this.dataPerQuery.get(keyGen(q, trainingFeatures)).transpose()
-                    .mmul(Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores)))).transpose()
+                    .mmul(Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores))))
                     .mul(l2);
             //L1
-            res.subi(this.dataPerQuery.get(keyGen(q, trainingFeatures)).transpose()
-                    .mmul(topp(this.dataPerQuery.get(keyGen(q, trainingScores)))));
+            INDArray t1 = this.dataPerQuery.get(keyGen(q, trainingFeatures)).transpose();
+            INDArray t2 = topp(this.dataPerQuery.get(keyGen(q, trainingScores)));
+            INDArray t3 = t1.mmul(t2);
+            res = res.sub(t3);
 
             //L deriv
-            res.divi(Math.log(predictedScores.length()));
+            res = res.div(Math.log(predictedScores.length()));
 
             if(!this.noExposure) {
-                res.addi(normalizedToppProtDerivPerGroupDiff(trainingFeatures, predictedScores, queryIds, q, protectedIdxs)
+                res = res.add(normalizedToppProtDerivPerGroupDiff(trainingFeatures, predictedScores, queryIds, q, protectedIdxs)
                         .mul(this.gamma)
                         .mul(2)
-                        .mul(exposureDiff(predictedScores, queryIds, q, protectedIdxs)));
+                        .mul(exposureDiff(predictedScores, queryIds, q, protectedIdxs)).transpose());
             }
 
-            gradient.putRow(atomicInteger.getAndIncrement(), res.transpose());
+            gradient.putRow(atomicInteger.getAndIncrement(), res);
         });
 
         return gradient;
@@ -168,7 +171,7 @@ public class Trainer {
                                                      INDArray groupPredictions, INDArray allPredictions) {
         INDArray derivative = toppProtFirstDerivative(groupFeatures, allFeatures, groupPredictions, allPredictions);
 
-        return derivative.sum(0).div(Math.log(2)).div(groupPredictions.length());
+        return derivative.div(Math.log(2)).sum(0).div(groupPredictions.length());
     }
 
     /**
@@ -178,15 +181,21 @@ public class Trainer {
                                              INDArray groupPredictions, INDArray allPredictions) {
         INDArray numerator1 = Transforms.exp(groupPredictions).transpose().mmul(groupFeatures);
         double numerator2 = Transforms.exp(allPredictions).sumNumber().doubleValue();
-        double numerator3 = Transforms.exp(Transforms.exp(allPredictions)
+        double numerator3 = Transforms.exp(allPredictions)
                 .transpose()
-                .mmul(allFeatures))
+                .mmul(allFeatures)
                 .sumNumber().doubleValue();
         double denominator = Math.pow(Transforms.exp(allPredictions).sumNumber().doubleValue(), 2);
 
-        INDArray results = numerator1.mul(numerator2)
-            .sub(Transforms.exp(groupPredictions).mul(numerator3))
-            .div(denominator);
+        INDArray t1 = numerator1.mul(numerator2);
+        INDArray t2 = Transforms.exp(groupPredictions).mul(numerator3);
+
+        INDArray results = Nd4j.create(groupFeatures.shape());
+
+        for(int i=0; i<results.rows(); i++) {
+            results.putRow(i, t1.sub(t2.getFloat(i,0)));
+        }
+        results = results.div(denominator);
 
         return results;
     }
@@ -196,10 +205,6 @@ public class Trainer {
         //the cost has to be of the same shape as the predicted/training scores
         INDArray cost = Nd4j.create(predictedScores.shape());
 
-//        for(int i=0;i<queryIds.length;i++) {
-//            cost.putRow(i, calculateLoss(queryIds[i], trainingScores, predictedScores, queryIds, protectedIdxs,
-//                    dataPerQueryPredicted));
-//        }
         AtomicInteger atomicInteger = new AtomicInteger(0);
 
         Arrays.stream(queryIds).parallel().forEachOrdered((q) -> {
