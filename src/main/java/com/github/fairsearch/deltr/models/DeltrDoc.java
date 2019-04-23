@@ -26,7 +26,7 @@ public interface DeltrDoc {
     boolean isProtected();
 
     /**
-     * Returns the judgement of this document. Ideally, that should not be part of the feature matrix
+     * Returns the judgement of this document. Ideally, that should not be part of the assignFeature matrix
      * @return
      */
     double judgement();
@@ -38,22 +38,48 @@ public interface DeltrDoc {
     void rejudge(double judgement);
 
     /**
-     * List of features of the document
+     * List of feature names/keys of the document
+     * @return
+     */
+    List<String> keys();
+
+    /**
+     * List of feature values of the document
      * @return
      */
     List<Double> features();
 
     /**
-     * Returns the feature at position `index`
+     * Returns the assignFeature at position `index`
      * @param index
      * @return
      */
     Double feature(int index);
 
     /**
-     * Return the feature with named `name`
+     * Return the assignFeature with the name `name`
      * @param name
      * @return
      */
     Double feature(String name);
+
+    /**
+     * Set the `value` to assignFeature with name `name`
+     * @param name
+     * @return
+     */
+    void assignFeature(String name, Double value);
+
+
+    /**
+     * Returns the `name` of the protected assignFeature
+     * @return
+     */
+    String protectedFeatureName();
+
+    /**
+     * Returns the `index` of the protected assignFeature in the assignFeature list
+     * @return
+     */
+    int protectedFeatureIndex();
 }

@@ -77,7 +77,7 @@ public class DeltrTests {
     private List<DeltrTopDocs> prepareData(String filePath) {
         List<DeltrTopDocs> ranks = new ArrayList<>();
 
-        String line = null;
+        String line;
 
         int currentQueryId = -1;
         int currentDocId = 0;
@@ -108,7 +108,8 @@ public class DeltrTests {
                 }
 
                 DeltrDocImpl doc = new DeltrDocImpl(currentDocId, judgement, gender == 1);
-                doc.addFeature("0", feature);
+                doc.addFeature("0", (double)gender, true);
+                doc.addFeature("1", feature);
 
                 currentDocId += 1;
 

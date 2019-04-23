@@ -20,7 +20,7 @@ public interface DeltrTopDocs {
     int size();
 
     /**
-     * Returns the documents in the ranking
+     * Returns a copy of the documents in the ranking
      * @return
      */
     List<DeltrDoc> docs();

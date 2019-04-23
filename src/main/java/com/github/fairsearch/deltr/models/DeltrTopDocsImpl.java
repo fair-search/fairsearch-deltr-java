@@ -16,12 +16,6 @@ public class DeltrTopDocsImpl extends TopDocs implements DeltrTopDocs {
     }
     public DeltrTopDocsImpl(int questionId, long totalHits, ScoreDoc[] scoreDocs, float maxScore) {
         super(totalHits, scoreDocs, maxScore);
-
-//        this.scoreDocs = new ScoreDoc[deltrDocs.length];
-//        for(int i=0; i<deltrDocs.length; i++) {
-//            this.scoreDocs[i] = (ScoreDoc)deltrDocs[i];
-//        }
-
         this.questionId = questionId;
     }
 

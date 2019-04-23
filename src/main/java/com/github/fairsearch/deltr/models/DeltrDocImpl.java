@@ -11,6 +11,7 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
 
     private TreeMap<String, Double> features = new TreeMap<String, Double>();
     private boolean isProtected;
+    private String protectedFeatureName;
 
     public DeltrDocImpl(int doc, float score, boolean isProtected) {
         super(doc, score);
@@ -23,6 +24,19 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
     }
 
     public void addFeature(String name, Double value) {
+        addFeature(name, value, false);
+    }
+
+    public void addFeature(String name, Double value, boolean isProtectedFeature) {
+        assignFeature(name, value);
+
+        if(isProtectedFeature) {
+            this.protectedFeatureName = name;
+        }
+    }
+
+    @Override
+    public void assignFeature(String name, Double value) {
         this.features.put(name, value);
     }
 
@@ -47,6 +61,11 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
     }
 
     @Override
+    public List<String> keys() {
+        return new ArrayList<String>(this.features.keySet());
+    }
+
+    @Override
     public List<Double> features() {
         return new ArrayList<Double>(this.features.values());
     }
@@ -64,5 +83,23 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
     @Override
     public boolean isProtected() {
         return this.isProtected;
+    }
+
+    @Override
+    public String protectedFeatureName() {
+        return this.protectedFeatureName;
+    }
+
+    @Override
+    public int protectedFeatureIndex() {
+        int index = 0;
+        while(this.features.keySet().iterator().hasNext()){
+            String name = this.features.keySet().iterator().next();
+            if(name.equals(protectedFeatureName())) {
+                break;
+            }
+            index++;
+        }
+        return index;
     }
 }
