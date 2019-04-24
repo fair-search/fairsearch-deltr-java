@@ -5,6 +5,7 @@ import com.github.fairsearch.deltr.models.DeltrDocImpl;
 import com.github.fairsearch.deltr.models.DeltrTopDocs;
 import com.github.fairsearch.deltr.models.DeltrTopDocsImpl;
 import com.github.fairsearch.deltr.models.TrainStep;
+import com.google.common.primitives.Doubles;
 import com.sun.javafx.scene.shape.PathUtils;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -14,6 +15,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.ops.transforms.Transforms;
+import org.nd4j.linalg.string.NDArrayStrings;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -23,6 +26,8 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.TreeMap;
+import java.util.stream.IntStream;
 
 @RunWith(JUnitParamsRunner.class)
 public class DeltrTests {
@@ -33,39 +38,75 @@ public class DeltrTests {
     public void testNd4j() {
         int nRows = 3;
         int nColumns = 5;
-        INDArray allRands = Nd4j.rand(1, nColumns);
-        INDArray allOnes = Nd4j.ones(nColumns, 1);
+        INDArray allRands = Nd4j.rand(nRows, nColumns);
         INDArray allZeros = Nd4j.zeros(nRows, nColumns);
-        System.out.println(allRands.mmul(allOnes));
-//        System.out.println(allOnes.mul(2));
-//        System.out.println(allRands.mmul(allOnes));
-//        System.out.println(allRands.mmul(allOnes).reshape(3,1));
+        INDArray allOnes = Nd4j.ones(nColumns, 1);
+        INDArray omega = Nd4j.rand(nColumns, 1);
+
+        allRands.put(0, 0, 1);
+        allRands.put(1, 0, 0);
+        allRands.put(2, 0, 1);
+        TreeMap<String, Double> features = new TreeMap<String, Double>();
+        features.put("0", 1.0);
+        features.put("1", 1.0);
+
+//        features.values().parallelStream().forEach((x) -> x = x/2);
+
+//        features.values().parallelStream().forEach((x) ->{
+//            System.out.println(x);
+//        });
+
+        System.out.println(Nd4j.create(new double[]{152}));
+        System.out.println(Transforms.exp(Nd4j.create(new double[]{152})));
+//        System.out.println(allOnes.stdNumber());
 //        System.out.println(allRands.mmul(allOnes).reshape(1,3));
 //        System.out.println(Transforms.log(allOnes));
 //        System.out.println(allOnes.shape()[0]);
-//        System.out.println(allOnes.shape()[1]);
-//        System.out.println(allRands.sum(0));
 //        System.out.println(allRands.sum(0).getFloat(0));
 //        System.out.println(allRands.sumNumber().floatValue());
     }
 
     @Test
-    @Parameters({"1, test_data_1.csv"})
-    public void testTrainFromCSV(double gamma, String fileName) {
+    @Parameters({"1, test_data_1.csv, true"})
+    public void testTrainFromCSV(double gamma, String fileName, boolean shouldStandardize) {
         String filePath = getClass().getResource(String.format("/fixtures/%s", fileName)).getFile();
         List<DeltrTopDocs> ranks = prepareData(filePath);
 
-        Deltr deltr = new Deltr(gamma, 10);
+        Deltr deltr = new Deltr(gamma, 10 , shouldStandardize);
 
         deltr.train(ranks);
 
+        evaluateTrainer(deltr);
+    }
+
+    @Test
+    @Parameters({"1, 20, 5, 1, 10, false"})
+    public void testTrainSyntheticData(int numberOfQuestions, int numberOfElementsPerQuestion, int numberOfFeatures,
+                                       double gamma, int numberOfIterations, boolean shouldStandardize) {
+        //TODO: implement this test!!
+        SyntheticDatasetCreator syntheticDatasetCreator = new SyntheticDatasetCreator(numberOfQuestions,
+                numberOfElementsPerQuestion, 2, numberOfFeatures);
+
+        List<DeltrTopDocs> trainSet = syntheticDatasetCreator.generateDataset();
+
+        trainSet.get(0).docs().stream().forEach((x) -> System.out.println(x.toString()));
+
+        Deltr deltr = new Deltr(gamma, numberOfIterations, shouldStandardize);
+
+        deltr.train(trainSet);
+
+        evaluateTrainer(deltr);
+    }
+
+    private void evaluateTrainer(Deltr deltr) {
         assert deltr.getOmega() != null;
         assert deltr.getLog() != null;
 
+        int precision = 8;
         if(deltr.getLog().size() > 1) {
             TrainStep prev = deltr.getLog().get(0);
             for (int i=1; i<deltr.getLog().size(); i++) {
-                System.out.println(deltr.getLog().get(i).getTotalCost() + " " + prev.getTotalCost());
+                System.out.println(new NDArrayStrings(precision).format(deltr.getLog().get(i).getOmega()) + " - " + deltr.getLog().get(i).getTotalCost());
                 assert deltr.getLog().get(i).getTotalCost() <= prev.getTotalCost();
                 prev = deltr.getLog().get(i);
             }
@@ -108,8 +149,8 @@ public class DeltrTests {
                 }
 
                 DeltrDocImpl doc = new DeltrDocImpl(currentDocId, judgement, gender == 1);
-                doc.addFeature("0", (double)gender, true);
-                doc.addFeature("1", feature);
+                doc.set("0", (double)gender, true);
+                doc.set("1", feature);
 
                 currentDocId += 1;
 

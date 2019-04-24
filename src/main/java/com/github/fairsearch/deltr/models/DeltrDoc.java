@@ -57,18 +57,18 @@ public interface DeltrDoc {
     Double feature(int index);
 
     /**
-     * Return the assignFeature with the name `name`
+     * Returns the assignFeature with the name `name`
      * @param name
      * @return
      */
     Double feature(String name);
 
     /**
-     * Set the `value` to assignFeature with name `name`
+     * Set `value` of the feature with name `name`
      * @param name
      * @return
      */
-    void assignFeature(String name, Double value);
+    void set(String name, Double value);
 
 
     /**

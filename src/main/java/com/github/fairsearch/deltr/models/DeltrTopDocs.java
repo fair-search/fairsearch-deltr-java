@@ -20,6 +20,12 @@ public interface DeltrTopDocs {
     int size();
 
     /**
+     * Re-sort the documents in the list (if their scores were changed)
+     * @return
+     */
+    void reorder();
+
+    /**
      * Returns a copy of the documents in the ranking
      * @return
      */

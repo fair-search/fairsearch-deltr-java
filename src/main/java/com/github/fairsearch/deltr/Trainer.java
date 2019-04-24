@@ -321,7 +321,9 @@ public class Trainer {
      * @return      float value which is a probability
      */
     private static INDArray topp(INDArray data) {
-        return Transforms.exp(data).div(Transforms.exp(data).sumNumber());
+        INDArray t1 = Transforms.exp(data);
+        t1 = t1.div(t1.sumNumber());
+        return t1;
     }
 
     private static class ItemGroup {

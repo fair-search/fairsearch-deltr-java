@@ -23,12 +23,8 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
         this.isProtected = isProtected;
     }
 
-    public void addFeature(String name, Double value) {
-        addFeature(name, value, false);
-    }
-
-    public void addFeature(String name, Double value, boolean isProtectedFeature) {
-        assignFeature(name, value);
+    public void set(String name, Double value, boolean isProtectedFeature) {
+        set(name, value);
 
         if(isProtectedFeature) {
             this.protectedFeatureName = name;
@@ -36,7 +32,7 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
     }
 
     @Override
-    public void assignFeature(String name, Double value) {
+    public void set(String name, Double value) {
         this.features.put(name, value);
     }
 
@@ -101,5 +97,10 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
             index++;
         }
         return index;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%f - %b", score, isProtected());
     }
 }

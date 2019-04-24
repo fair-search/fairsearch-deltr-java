@@ -121,7 +121,7 @@ public class Deltr implements Serializable {
                 DeltrDoc doc = docs.doc(i);
                 for(String key : doc.keys()) {
                     if(!key.equals(doc.protectedFeatureName()))
-                        doc.assignFeature(key, (doc.feature(key) - this.mu)/this.sigma);
+                        doc.set(key, (doc.feature(key) - this.mu)/this.sigma);
                 }
             }
         }
@@ -136,13 +136,7 @@ public class Deltr implements Serializable {
         }
 
         //re-order the docs
-        docs.docs().sort((o1, o2) -> {
-            if(o1.judgement() < o2.judgement())
-                return 1;
-            else if(o1.judgement() > o2.judgement())
-                return -1;
-            return 0;
-        });
+        docs.reorder();
 
         return docs;
     }

@@ -20,6 +20,17 @@ public class DeltrTopDocsImpl extends TopDocs implements DeltrTopDocs {
     }
 
     @Override
+    public void reorder() {
+        Arrays.sort(this.scoreDocs, (o1, o2) -> {
+            if(o1.score < o2.score)
+                return 1;
+            else if(o1.score > o2.score)
+                return -1;
+            return 0;
+        });
+    }
+
+    @Override
     public int id() {
         return this.questionId;
     }
