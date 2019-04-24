@@ -18,7 +18,7 @@ import java.util.stream.IntStream;
  */
 public class Deltr implements Serializable {
 
-    private static final Logger LOGGER = Logger.getLogger(Deltr.class.getName());
+    protected static final Logger LOGGER = Logger.getLogger(Deltr.class.getName());
 
     private double gamma; //gamma parameter for the cost calculation in the training phase (recommended to be around 1)
 
@@ -27,12 +27,12 @@ public class Deltr implements Serializable {
     private double lambda; // regularization constant
     private double initVar; // range of values for initialization of weights
 
-    private boolean shouldStandardize; // boolean indicating whether the data should be standardized or not
-    private double mu = 0; // mu for standardization
-    private double sigma = 0; // sigma for standardization
+    protected boolean shouldStandardize; // boolean indicating whether the data should be standardized or not
+    protected double mu = 0; // mu for standardization
+    protected double sigma = 0; // sigma for standardization
 
-    private double[] omega = null;
-    private List<TrainStep> log = null;
+    protected double[] omega = null;
+    protected List<TrainStep> log = null;
 
     /**
      *  Disparate Exposure in Learning To Rank

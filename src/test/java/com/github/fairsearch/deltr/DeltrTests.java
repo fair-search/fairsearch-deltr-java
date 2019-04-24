@@ -50,25 +50,22 @@ public class DeltrTests {
         features.put("0", 1.0);
         features.put("1", 1.0);
 
-//        features.values().parallelStream().forEach((x) -> x = x/2);
-
 //        features.values().parallelStream().forEach((x) ->{
 //            System.out.println(x);
 //        });
 
         System.out.println(Nd4j.create(new double[]{152}));
         System.out.println(Transforms.exp(Nd4j.create(new double[]{152})));
-//        System.out.println(allOnes.stdNumber());
 //        System.out.println(allRands.mmul(allOnes).reshape(1,3));
 //        System.out.println(Transforms.log(allOnes));
 //        System.out.println(allOnes.shape()[0]);
 //        System.out.println(allRands.sum(0).getFloat(0));
-//        System.out.println(allRands.sumNumber().floatValue());
     }
 
     @Test
-    @Parameters({"1, test_data_1.csv, true"})
-    public void testTrainFromCSV(double gamma, String fileName, boolean shouldStandardize) {
+    @Parameters({"1, test_data_1.csv, true",
+                 "1, test_data_1.csv, false"})
+    public void testTrainFromFixtures(double gamma, String fileName, boolean shouldStandardize) {
         String filePath = getClass().getResource(String.format("/fixtures/%s", fileName)).getFile();
         List<DeltrTopDocs> ranks = prepareData(filePath);
 
@@ -80,16 +77,27 @@ public class DeltrTests {
     }
 
     @Test
-    @Parameters({"1, 20, 5, 1, 10, false"})
+    @Parameters({
+//                "1, 20, 5, 1, 100, false",
+//                "1, 50, 10, 0.8, 500, false",
+                "1, 1000, 3, 1, 1000, false",
+//                "2, 200, 4, 0.9, 300, false",
+//                "3, 100, 5, 1, 200, false",
+//                "4, 50, 6, 1, 100, false",
+//                "1, 20, 5, 1, 100, true",
+//                "1, 50, 10, 0.8, 500, true",
+//                "1, 1000, 3, 1, 1000, true",
+//                "2, 200, 4, 0.9, 300, true",
+//                "3, 100, 5, 1, 200, true",
+//                "4, 50, 6, 1, 100, true"
+    })
     public void testTrainSyntheticData(int numberOfQuestions, int numberOfElementsPerQuestion, int numberOfFeatures,
                                        double gamma, int numberOfIterations, boolean shouldStandardize) {
-        //TODO: implement this test!!
+        // create a train dataset
         SyntheticDatasetCreator syntheticDatasetCreator = new SyntheticDatasetCreator(numberOfQuestions,
                 numberOfElementsPerQuestion, 2, numberOfFeatures);
 
         List<DeltrTopDocs> trainSet = syntheticDatasetCreator.generateDataset();
-
-        trainSet.get(0).docs().stream().forEach((x) -> System.out.println(x.toString()));
 
         Deltr deltr = new Deltr(gamma, numberOfIterations, shouldStandardize);
 
@@ -106,13 +114,95 @@ public class DeltrTests {
         if(deltr.getLog().size() > 1) {
             TrainStep prev = deltr.getLog().get(0);
             for (int i=1; i<deltr.getLog().size(); i++) {
-                System.out.println(new NDArrayStrings(precision).format(deltr.getLog().get(i).getOmega()) + " - " + deltr.getLog().get(i).getTotalCost());
                 assert deltr.getLog().get(i).getTotalCost() <= prev.getTotalCost();
                 prev = deltr.getLog().get(i);
             }
         } else {
             assert deltr.getLog().get(0) != null;
         }
+    }
+
+    @Test
+    public void testRankEmptyDeltr() {
+        try{
+            Deltr d = new Deltr(1);
+            d.rank(null);
+            assert false;
+        } catch (NullPointerException e) {
+            assert true;
+        } catch (Exception e) {
+            assert false;
+        }
+    }
+
+    private static class DeltrMock extends Deltr {
+
+        public DeltrMock(double gamma) {
+            super(gamma);
+        }
+
+        public void setOmega(double[] omega) {
+            this.omega = omega;
+        }
+
+        public void setMu(double mu) {
+            this.mu = mu;
+        }
+
+        public void setSigma(double sigma) {
+            this.sigma = sigma;
+        }
+    }
+
+    @Test
+    @Parameters({
+            "20, 5, false",
+            "50, 10, false",
+            "1000, 3, false",
+            "20, 5, true",
+            "50, 10, true",
+            "1000, 3, true",
+    })
+    public void testRankDeltr(int numberOfElements, int numberOfFeatures, boolean shouldStandardize) {
+        // create a dataset
+        SyntheticDatasetCreator syntheticDatasetCreator = new SyntheticDatasetCreator(1,
+                numberOfElements, 2, numberOfFeatures);
+        List<DeltrTopDocs> predictionSets = syntheticDatasetCreator.generateDataset();
+
+        // the first (and only) subset is used for prediction
+        DeltrTopDocs predictionSet = predictionSets.get(0);
+
+        //generate sample weights for omega
+        double[] omega = IntStream.range(0, numberOfFeatures).mapToDouble((x) -> 10 * x).toArray();
+
+        // create the ranker and set omega
+        DeltrMock deltrMock = new DeltrMock(1); // gammma is not neccessary here
+        deltrMock.setOmega(omega);
+
+        //set mu and sigma if standardization is required
+        if(shouldStandardize) {
+            deltrMock.setMu(1);
+            deltrMock.setSigma(1);
+        }
+
+        // get the results
+        DeltrTopDocs result = deltrMock.rank(predictionSet);
+
+        // calculate the results manually
+        IntStream.range(0, numberOfElements).parallel().forEach((j) -> {
+            double score = IntStream.range(0, numberOfFeatures)
+                    .parallel()
+                    .mapToDouble( x -> omega[x] * predictionSet.doc(j).feature(x))
+                    .sum();
+            predictionSet.doc(j).rejudge(score);
+        });
+        //sort the results
+        predictionSet.reorder();
+
+        //compare the results
+        IntStream.range(0, numberOfElements).parallel().forEach((j) -> {
+            assert predictionSet.doc(j).id() == result.doc(j).id();
+        });
     }
 
     private List<DeltrTopDocs> prepareData(String filePath) {
@@ -167,53 +257,4 @@ public class DeltrTests {
         return ranks;
     }
 
-    @Test
-//    public void testRanker() {
-//        Ranker ranker;
-//        RankerTrainer trainer = new RankerTrainer();
-//        MetricScorerFactory mcf = new MetricScorerFactory();
-//
-//        String file = getClass().getResource("/fixtures/test_data_2.csv").getFile();
-//        List<RankList> rankLists = FeatureManager.readInput(file);
-//        for(RankList rnk : rankLists) {
-//            for(int i=0; i < rnk.size(); i++) {
-//                System.out.println(rnk.get(i));
-//            }
-//        }
-//
-//        System.out.println(rankLists);
-//
-//        ranker = trainer.train(RANKER_TYPE.LISTNET, rankLists, FeatureManager.getFeatureFromSampleVector(rankLists), mcf.createScorer(METRIC.ERR));
-//
-//        System.out.println(">>>>" + ranker.getFeatures());
-//        Arrays.stream(ranker.getFeatures()).forEach(x -> System.out.print(x + " "));
-//        System.out.println(">>>>" + ranker.model());
-//    }
-
-    public Object[] parametersTestCreateAdjustedMTable() {
-        List<Object> parameters = new ArrayList<Object>();
-
-        Object[] case1 = {10, 0.2, 0.15, new int[]{0, 0, 0, 0, 0, 0, 0, 0, 1, 1}};
-        Object[] case2 = {20, 0.25, 0.1, new int[]{0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2}};
-        Object[] case3 = {30, 0.3, 0.05, new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2,
-                3, 3, 3, 3, 4, 4, 4, 4, 4}};
-
-        parameters.add(case1);
-        parameters.add(case2);
-        parameters.add(case3);
-
-        return parameters.toArray();
-    }
-
-    @Test
-    @Parameters(method = "parametersTestCreateAdjustedMTable")
-    public void testCreateAdjustedMTable(int k, double p, double alpha, int[] expected){
-    }
-
-    @Test
-    @Parameters({"10, 0.25, 0.15, 0.15",
-                 "20, 0.25, 0.1, 0.07812500000000001",
-                 "30, 0.3, 0.15, 0.075"})
-    public void testAdjustAlpha(int k, double p, double alpha, double expected) {
-    }
 }
