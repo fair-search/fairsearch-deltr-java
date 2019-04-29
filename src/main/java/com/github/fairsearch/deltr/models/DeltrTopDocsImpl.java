@@ -6,6 +6,7 @@ import org.apache.lucene.search.TopDocs;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class DeltrTopDocsImpl extends TopDocs implements DeltrTopDocs {
 
@@ -41,12 +42,15 @@ public class DeltrTopDocsImpl extends TopDocs implements DeltrTopDocs {
     }
 
     @Override
-    public List<DeltrDoc> docs() {
-        return Arrays.stream(this.scoreDocs).map(x -> (DeltrDoc)x).collect(Collectors.toList());
+    public DeltrDoc doc(int index) {
+        return (DeltrDoc) this.scoreDocs[index];
     }
 
     @Override
-    public DeltrDoc doc(int index) {
-        return (DeltrDoc) this.scoreDocs[index];
+    public void put(DeltrDoc[] docs) {
+        this.scoreDocs = new ScoreDoc[docs.length];
+        IntStream.range(0, docs.length).forEach((i) -> {
+            this.scoreDocs[i] = (DeltrDocImpl) docs[i];
+        });
     }
 }

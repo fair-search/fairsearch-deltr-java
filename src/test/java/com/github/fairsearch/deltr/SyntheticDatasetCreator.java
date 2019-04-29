@@ -50,7 +50,7 @@ public class SyntheticDatasetCreator {
 
                 // initialize doc
                 DeltrDocImpl doc = new DeltrDocImpl(j, 0, isProtected == 1);
-                doc.set("0", (double)isProtected, true);
+                doc.put("0", isProtected == 1);
 
                 // for each DeltrTopDoc generate features
                 double mu = random.nextDouble();
@@ -65,7 +65,7 @@ public class SyntheticDatasetCreator {
                     double feature = mu + random.nextGaussian()*sigma;
 
                     // add feature
-                    doc.set(String.valueOf(k), feature);
+                    doc.put(String.valueOf(k), feature);
 
                     // add to dot product
                     score += weights[k] * feature;

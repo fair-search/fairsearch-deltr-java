@@ -121,13 +121,14 @@ public class Deltr implements Serializable {
                 DeltrDoc doc = docs.doc(i);
                 for(String key : doc.keys()) {
                     if(!key.equals(doc.protectedFeatureName()))
-                        doc.set(key, (doc.feature(key) - this.mu)/this.sigma);
+                        doc.put(key, (doc.feature(key) - this.mu)/this.sigma);
                 }
             }
         }
 
         //re-calculate the judgement for each document
-        for(DeltrDoc doc : docs.docs()) {
+        for(int j=0; j<docs.size(); j++) {
+            DeltrDoc doc = docs.doc(j);
             double dotProduct = 0;
             for(int i=0; i<doc.size(); i++) {
                 dotProduct += doc.feature(i) * this.omega[i];
@@ -181,19 +182,36 @@ public class Deltr implements Serializable {
             //copy query data
             int[] tmp = queryIds;
             queryIds = new int[tmp.length + data.queryIds.length];
-            System.arraycopy(data, 0, queryIds, tmp.length, data.queryIds.length);
+            System.arraycopy(tmp, 0, queryIds, 0, tmp.length);
+            System.arraycopy(data.queryIds, 0, queryIds, tmp.length, data.queryIds.length);
 
             //copy protected assignFeature data
             tmp = protectedElementFeature;
             protectedElementFeature = new int[tmp.length + data.protectedElementFeature.length];
-            System.arraycopy(data, 0, protectedElementFeature, tmp.length, data.protectedElementFeature.length);
+            System.arraycopy(tmp, 0, protectedElementFeature, 0, tmp.length);
+            System.arraycopy(data.protectedElementFeature, 0, protectedElementFeature,
+                    tmp.length, data.protectedElementFeature.length);
+
+            //create new feature matrix
+            INDArray newFeatureMatrix = Nd4j.create(featureMatrix.rows() + data.featureMatrix.rows(),
+                    featureMatrix.columns());
+            INDArray newTrainingScores = Nd4j.create(trainingScores.rows() + data.trainingScores.rows(),
+                    trainingScores.columns());
+
 
             //copy assignFeature matrix and training scores (if any)
-            for(int i=0; i<data.featureMatrix.rows(); i++) {
-                featureMatrix.addRowVector(data.featureMatrix.getRow(i));
-                if(trainingScores != null && data.trainingScores != null)
-                    trainingScores.addRowVector(data.trainingScores.getRow(i));
+            for(int i=0; i< featureMatrix.rows(); i++) {
+                newFeatureMatrix.putRow(i, featureMatrix.getRow(i));
+                newTrainingScores.putRow(i, trainingScores.getRow(i));
             }
+            for(int i=0; i< data.featureMatrix.rows(); i++) {
+                newFeatureMatrix.putRow(i + featureMatrix.rows(), data.featureMatrix.getRow(i));
+                newTrainingScores.putRow(i + featureMatrix.rows(), data.trainingScores.getRow(i));
+            }
+
+            featureMatrix = newFeatureMatrix;
+            trainingScores = newTrainingScores;
+
             return this;
         }
     }

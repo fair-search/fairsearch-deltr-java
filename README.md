@@ -123,7 +123,7 @@ DeltrTopDocs preidictionSet = new DeltrTopDocsImpl(2); // 2 is the question ID
 // let's create each prediction doc manually (docId, judgement/score)
 
 // item 7
-DeltrDoc item7 = new DeltrDocImpl(7, 0.9645f); // the curret score is not important
+DeltrDoc item7 = new DeltrDocImpl(7, 0.9645f); // the current score is not really important
 item7.put("f0", 0.0, false);
 item7.put("f1", 0.9645);
 
@@ -154,7 +154,7 @@ item12.put("f1", 0.8312);
 
 //add the items in the set
 DeltrDoc[] predArr = new DeltrDoc[]{item7, item8, item9, item10, item11, item12};
-preidictionSet.setDocs(predArr);
+preidictionSet.put(predArr);
 
 DeltrTopDocs reranked = deltr.rank(preidictionSet);
 // reranked ->

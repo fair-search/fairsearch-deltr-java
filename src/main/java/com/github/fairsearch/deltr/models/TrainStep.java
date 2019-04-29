@@ -83,4 +83,10 @@ public class TrainStep {
     public void setLossExposure(double lossExposure) {
         this.lossExposure = lossExposure;
     }
+
+    @Override
+    public String toString() {
+        return String.format("timestamp:%d, lossStandard:%f, lossExposure:%f ",
+                getTimestamp(), getLossStandard(), getLossExposure());
+    }
 }

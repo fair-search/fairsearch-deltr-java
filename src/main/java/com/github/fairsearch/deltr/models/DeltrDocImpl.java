@@ -3,6 +3,7 @@ package com.github.fairsearch.deltr.models;
 import com.google.common.collect.Iterables;
 import org.apache.lucene.search.ScoreDoc;
 
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
@@ -12,6 +13,11 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
     private TreeMap<String, Double> features = new TreeMap<String, Double>();
     private boolean isProtected;
     private String protectedFeatureName;
+
+    public DeltrDocImpl(int doc, float score) {
+        super(doc, score);
+        this.isProtected = false; //init to false
+    }
 
     public DeltrDocImpl(int doc, float score, boolean isProtected) {
         super(doc, score);
@@ -23,16 +29,19 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
         this.isProtected = isProtected;
     }
 
-    public void set(String name, Double value, boolean isProtectedFeature) {
-        set(name, value);
+    public void put(String name, Boolean isProtected) {
+        put(name, isProtected ? 1.0 : 0.0);
 
-        if(isProtectedFeature) {
+        if(this.protectedFeatureName == null) {
             this.protectedFeatureName = name;
+            this.isProtected = isProtected;
+        } else {
+            throw new InvalidParameterException("Protected feature already set!");
         }
     }
 
     @Override
-    public void set(String name, Double value) {
+    public void put(String name, Double value) {
         this.features.put(name, value);
     }
 
@@ -101,6 +110,6 @@ public class DeltrDocImpl extends ScoreDoc implements DeltrDoc {
 
     @Override
     public String toString() {
-        return String.format("%f - %b", score, isProtected());
+        return String.format("id:%d, judgement:%f, isProtected:%b", id(), judgement(), isProtected());
     }
 }

@@ -1,12 +1,9 @@
 package com.github.fairsearch.deltr;
 
-import com.github.fairsearch.deltr.models.DeltrDoc;
 import com.github.fairsearch.deltr.models.DeltrDocImpl;
 import com.github.fairsearch.deltr.models.DeltrTopDocs;
 import com.github.fairsearch.deltr.models.DeltrTopDocsImpl;
 import com.github.fairsearch.deltr.models.TrainStep;
-import com.google.common.primitives.Doubles;
-import com.sun.javafx.scene.shape.PathUtils;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.apache.lucene.search.ScoreDoc;
@@ -16,15 +13,11 @@ import org.junit.runner.RunWith;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.ops.transforms.Transforms;
-import org.nd4j.linalg.string.NDArrayStrings;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.stream.IntStream;
@@ -32,7 +25,7 @@ import java.util.stream.IntStream;
 @RunWith(JUnitParamsRunner.class)
 public class DeltrTests {
 
-    private static final double OFFSET = 0.0001; // result tolerance for DeltrTests
+    private static final double OFFSET = 0.001; // result tolerance for DeltrTests
 
     @Test
     public void testNd4j() {
@@ -78,18 +71,18 @@ public class DeltrTests {
 
     @Test
     @Parameters({
-//                "1, 20, 5, 1, 100, false",
-//                "1, 50, 10, 0.8, 500, false",
+                "1, 20, 5, 1, 100, false",
+                "1, 50, 10, 0.8, 500, false",
                 "1, 1000, 3, 1, 1000, false",
-//                "2, 200, 4, 0.9, 300, false",
-//                "3, 100, 5, 1, 200, false",
-//                "4, 50, 6, 1, 100, false",
-//                "1, 20, 5, 1, 100, true",
-//                "1, 50, 10, 0.8, 500, true",
-//                "1, 1000, 3, 1, 1000, true",
-//                "2, 200, 4, 0.9, 300, true",
-//                "3, 100, 5, 1, 200, true",
-//                "4, 50, 6, 1, 100, true"
+                "2, 200, 4, 0.9, 300, false",
+                "3, 100, 5, 1, 200, false",
+                "4, 50, 6, 1, 100, false",
+                "1, 20, 5, 1, 100, true",
+                "1, 50, 10, 0.8, 500, true",
+                "1, 1000, 3, 1, 1000, true",
+                "2, 200, 4, 0.9, 300, true",
+                "3, 100, 5, 1, 200, true",
+                "4, 50, 6, 1, 100, true"
     })
     public void testTrainSyntheticData(int numberOfQuestions, int numberOfElementsPerQuestion, int numberOfFeatures,
                                        double gamma, int numberOfIterations, boolean shouldStandardize) {
@@ -114,7 +107,9 @@ public class DeltrTests {
         if(deltr.getLog().size() > 1) {
             TrainStep prev = deltr.getLog().get(0);
             for (int i=1; i<deltr.getLog().size(); i++) {
-                assert deltr.getLog().get(i).getTotalCost() <= prev.getTotalCost();
+                if(deltr.getLog().get(i).getTotalCost() > prev.getTotalCost())
+                    System.out.println(deltr.getLog().get(i).getTotalCost() + " <= " +  prev.getTotalCost());
+                assert prev.getTotalCost() - deltr.getLog().get(i).getTotalCost() + OFFSET >= 0;
                 prev = deltr.getLog().get(i);
             }
         } else {
@@ -239,8 +234,8 @@ public class DeltrTests {
                 }
 
                 DeltrDocImpl doc = new DeltrDocImpl(currentDocId, judgement, gender == 1);
-                doc.set("0", (double)gender, true);
-                doc.set("1", feature);
+                doc.put("0", gender == 1);
+                doc.put("1", feature);
 
                 currentDocId += 1;
 

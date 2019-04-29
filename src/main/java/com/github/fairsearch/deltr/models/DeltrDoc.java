@@ -68,7 +68,14 @@ public interface DeltrDoc {
      * @param name
      * @return
      */
-    void set(String name, Double value);
+    void put(String name, Double value);
+
+    /**
+     * Set `value` of the protected feature with name `name`. There can be only *one* such feature.
+     * @param name
+     * @return
+     */
+    void put(String name, Boolean isProtected);
 
 
     /**

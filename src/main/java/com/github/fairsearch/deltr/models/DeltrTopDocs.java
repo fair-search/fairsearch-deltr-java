@@ -26,10 +26,10 @@ public interface DeltrTopDocs {
     void reorder();
 
     /**
-     * Returns a copy of the documents in the ranking
-     * @return
+     * Put the sorted list of documents in the object
+     * @param docs
      */
-    List<DeltrDoc> docs();
+    void put(DeltrDoc[] docs);
 
     /**
      * Returns the document in the ranking at position `index`
