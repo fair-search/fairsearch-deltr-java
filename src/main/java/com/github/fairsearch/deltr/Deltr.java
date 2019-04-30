@@ -14,7 +14,14 @@ import java.util.logging.Logger;
 import java.util.stream.IntStream;
 
 /**
- * This class serves as a wrapper around the utilities we have created for FA*IR ranking
+ *  Disparate Exposure in Learning To Rank
+ *  --------------------------------------
+ *  A supervised learning to rank algorithm that incorporates a measure of performance and a measure
+ *  of disparate exposure into its loss function. Trains a linear model based on performance and
+ *  fairness for a protected group.
+ *  By reducing disparate exposure for the protected group, increases the overall group visibility in
+ *  the resulting rankings and thus prevents systematic biases against a protected group in the model,
+ *  even though such bias might be present in the training data.
  */
 public class Deltr implements Serializable {
 
@@ -35,29 +42,37 @@ public class Deltr implements Serializable {
     protected List<TrainStep> log = null;
 
     /**
-     *  Disparate Exposure in Learning To Rank
-     *  --------------------------------------
-     *  A supervised learning to rank algorithm that incorporates a measure of performance and a measure
-     *  of disparate exposure into its loss function. Trains a linear model based on performance and
-     *  fairness for a protected group.
-     *  By reducing disparate exposure for the protected group, increases the overall group visibility in
-     *  the resulting rankings and thus prevents systematic biases against a protected group in the model,
-     *  even though such bias might be present in the training data.
-     *
      * @param gamma gamma parameter for the cost calculation in the training phase (recommended to be around 1)
      */
     public Deltr(double gamma){
         this(gamma, false);
     }
 
+    /**
+     * @param gamma gamma parameter for the cost calculation in the training phase (recommended to be around 1)
+     * @param shouldStandardize boolean indicating whether the data should be standardized or not
+     */
     public Deltr(double gamma, boolean shouldStandardize){
         this(gamma, 3000, shouldStandardize);
     }
 
+    /**
+     * @param gamma gamma parameter for the cost calculation in the training phase (recommended to be around 1)
+     * @param numberOfIterations number of iteration in gradient descent
+     * @param shouldStandardize boolean indicating whether the data should be standardized or not
+     */
     public Deltr(double gamma, int numberOfIterations, boolean shouldStandardize){
         this(gamma, numberOfIterations, 0.001f, 0.001f, 0.01f, shouldStandardize);
     }
 
+    /**
+     * @param gamma gamma parameter for the cost calculation in the training phase (recommended to be around 1)
+     * @param numberOfIterations number of iteration in gradient descent
+     * @param learningRate      learning rate in gradient descent
+     * @param lambda            regularization constant
+     * @param initVar           range of values for initialization of weights
+     * @param shouldStandardize boolean indicating whether the data should be standardized or not
+     */
     public Deltr(double gamma, int numberOfIterations, double learningRate, double lambda,
                  double initVar, boolean shouldStandardize){
         this.gamma = gamma;
@@ -69,9 +84,10 @@ public class Deltr implements Serializable {
     }
 
     /**
-     *  Trains a DELTR model on a given training set
-     * @param ranks list of DeltrTopDocs (query -> documents) containing `com.github.fairsearch.deltr.models.DeltrDoc`
-     *              instance implementations
+     * Trains a DELTR model on a given training set
+     * @param ranks     A list of DeltrTopDocs (query-to-documents) containing `DeltrDoc` instance implementations
+     * @see             DeltrTopDocs
+     * @see             DeltrDoc
      */
     public void train(List<DeltrTopDocs> ranks) {
         // create the trainer
@@ -106,8 +122,10 @@ public class Deltr implements Serializable {
 
     /**
      * Uses the trained DELTR model to rank the prediction set
-     * @param docs          the prediction set to be (re)ranked
-     * @return
+     * @param docs         The prediction set to be (re)ranked
+     * @return             Returns a new set of re-ranked documents
+     * @see                DeltrTopDocs
+     * @see                DeltrDoc
      */
     public DeltrTopDocs rank(DeltrTopDocs docs) {
         //check if the model is created
@@ -216,10 +234,19 @@ public class Deltr implements Serializable {
         }
     }
 
+    /**
+     * Returns `omega` as a vector of decimals
+     * @return      An array of the double values describing omega
+     */
     public double[] getOmega() {
         return omega;
     }
 
+    /**
+     * Returns the log of all steps in the training
+     * @return      A list of `TrainStep` instances
+     * @see         TrainStep
+     */
     public List<TrainStep> getLog() {
         return this.log;
     }

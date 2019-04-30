@@ -9,32 +9,31 @@ public interface DeltrTopDocs {
 
     /**
      * A unique id of the query/ranking (if multiple queries are inputted)
-     * @return
+     * @return      The ID
      */
     int id();
 
     /**
      * The number of documents in the ranking
-     * @return
+     * @return      The length of the ranking
      */
     int size();
 
     /**
      * Re-sort the documents in the list (if their scores were changed)
-     * @return
      */
     void reorder();
 
     /**
      * Put the sorted list of documents in the object
-     * @param docs
+     * @param docs      The new array of sorted DeltrDoc instances
      */
     void put(DeltrDoc[] docs);
 
     /**
      * Returns the document in the ranking at position `index`
-     * @param index
-     * @return
+     * @param index     Position of the document in the ranking
+     * @return          The document instance
      */
     DeltrDoc doc(int index);
 }

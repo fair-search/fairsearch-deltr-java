@@ -13,7 +13,7 @@ buildscript {
 }
 
 group 'com.github.fair-search'
-version '1.0.0'
+version '0.0.1'
 
 apply plugin: 'java'
 apply plugin: 'maven-publish'
