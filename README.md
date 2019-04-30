@@ -1,7 +1,7 @@
 # Fair search DELTR for Java
 
 [![image](https://api.travis-ci.org/fair-search/fairsearchdeltr-java.svg?branch=master)](https://travis-ci.org/fair-search/fairsearchdeltr-java)
-[![image](https://img.shields.io/pypi/l/fairsearch.svg)](https://pypi.org/project/fairsearchcore/)
+[![image](https://img.shields.io/pypi/l/fairsearchdeltr.svg)](https://pypi.org/project/fairsearchdeltr)
 
 This is the Java library that implements the [DELTR](https://arxiv.org/pdf/1805.08716.pdf) model for fair ranking.
 
