@@ -1,13 +1,20 @@
 package com.github.fairsearch.deltr;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.github.fairsearch.deltr.models.DeltrDoc;
 import com.github.fairsearch.deltr.models.DeltrTopDocs;
 import com.github.fairsearch.deltr.models.TrainStep;
+import com.github.fairsearch.deltr.parsers.DeltrDeserializer;
 import com.google.common.primitives.Doubles;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 
-import java.io.Serializable;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -23,22 +30,33 @@ import java.util.stream.IntStream;
  *  the resulting rankings and thus prevents systematic biases against a protected group in the model,
  *  even though such bias might be present in the training data.
  */
-public class Deltr implements Serializable {
+
+@JsonDeserialize(using = DeltrDeserializer.class)
+public class Deltr {
 
     protected static final Logger LOGGER = Logger.getLogger(Deltr.class.getName());
-
+    @JsonProperty
     private double gamma; //gamma parameter for the cost calculation in the training phase (recommended to be around 1)
 
+    @JsonProperty("number_of_iterations")
     private int numberOfIterations; // number of iteration in gradient descent
+    @JsonProperty("learning_rate")
     private double learningRate; // learning rate in gradient descent
+    @JsonProperty
     private double lambda; // regularization constant
+    @JsonProperty("init_var")
     private double initVar; // range of values for initialization of weights
 
+    @JsonProperty("standardize")
     protected boolean shouldStandardize; // boolean indicating whether the data should be standardized or not
+    @JsonProperty
     protected double mu = 0; // mu for standardization
+    @JsonProperty
     protected double sigma = 0; // sigma for standardization
-
+    @JsonProperty
     protected double[] omega = null;
+
+    @JsonIgnore
     protected List<TrainStep> log = null;
 
     /**
@@ -81,6 +99,25 @@ public class Deltr implements Serializable {
         this.lambda = lambda;
         this.initVar = initVar;
         this.shouldStandardize = shouldStandardize;
+    }
+
+    /**
+     * @param gamma gamma parameter for the cost calculation in the training phase (recommended to be around 1)
+     * @param numberOfIterations number of iteration in gradient descent
+     * @param learningRate      learning rate in gradient descent
+     * @param lambda            regularization constant
+     * @param initVar           range of values for initialization of weights
+     * @param shouldStandardize boolean indicating whether the data should be standardized or not
+     * @param mu                set mu for standardization
+     * @param sigma             set sigma for standardization
+     * @param omega             set precomputed omega
+     */
+    public Deltr(double gamma, int numberOfIterations, double learningRate, double lambda,
+                 double initVar, boolean shouldStandardize, double mu, double sigma, double[] omega){
+        this(gamma, numberOfIterations, learningRate, lambda, initVar, shouldStandardize);
+        this.mu = mu;
+        this.sigma = sigma;
+        this.omega = omega;
     }
 
     /**
@@ -249,5 +286,49 @@ public class Deltr implements Serializable {
      */
     public List<TrainStep> getLog() {
         return this.log;
+    }
+
+    /**
+     * Serializes the object to a JSON string. The `log` is not serialized.
+     * @return          A string representing the object
+     */
+    public String toJson() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            return objectMapper.writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            LOGGER.severe(String.format("Exception in parsing: '%s'", e.getMessage()));
+        }
+        return null;
+    }
+
+    /**
+     * Deseralizes a Deltr object from a JSON string.
+     * @param jsonString        The JSON representation of the object
+     * @return                  The created Deltr instance
+     */
+    public static Deltr createFromJson(String jsonString) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            return objectMapper.readValue(jsonString, Deltr.class);
+        } catch (IOException e) {
+            LOGGER.severe(String.format("IOException in parsing: '%s'", e.getMessage()));
+        }
+        return null ;
+    }
+
+    @Override
+    public String toString() {
+        return "Deltr{" +
+                "gamma=" + gamma +
+                ", numberOfIterations=" + numberOfIterations +
+                ", learningRate=" + learningRate +
+                ", lambda=" + lambda +
+                ", initVar=" + initVar +
+                ", shouldStandardize=" + shouldStandardize +
+                ", mu=" + mu +
+                ", sigma=" + sigma +
+                ", omega=" + Arrays.toString(omega) +
+                '}';
     }
 }

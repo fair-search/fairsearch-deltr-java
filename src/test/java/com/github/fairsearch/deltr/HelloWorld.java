@@ -1,17 +1,20 @@
 package com.github.fairsearch.deltr;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.fairsearch.deltr.models.DeltrDoc;
 import com.github.fairsearch.deltr.models.DeltrDocImpl;
 import com.github.fairsearch.deltr.models.DeltrTopDocs;
 import com.github.fairsearch.deltr.models.DeltrTopDocsImpl;
 import com.github.fairsearch.deltr.models.TrainStep;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class HelloWorld {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
        // create some data
         List<DeltrTopDocs> trainSet = new ArrayList<>();
 
@@ -129,5 +132,14 @@ public class HelloWorld {
         // .
         // .
         // .
+
+        //serialize the object
+        String jsonString = deltr.toJson();
+        //print the string
+        System.out.println(jsonString);
+        //deserialize the object
+        Deltr again = Deltr.createFromJson(jsonString);
+        //print the object
+        System.out.println(again);
     }
 }
