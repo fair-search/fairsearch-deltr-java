@@ -91,14 +91,14 @@ public class Trainer {
 
             });
 
-            LOGGER.info("pred: " + (System.currentTimeMillis() - stepStart));
+            LOGGER.info(String.format("Prediction computed in %d ms", (System.currentTimeMillis() - stepStart)));
             stepStart = System.currentTimeMillis();
 
             //get the cost/loss for all queries
             TrainStep trainStep = calculateCost(trainingScores, predictedScores, queryIds,
                     protectedElementFeature, dataPerQueryPredicted);
 
-            LOGGER.info(" cost: " + (System.currentTimeMillis() - stepStart));
+            LOGGER.info("Cost: " + (System.currentTimeMillis() - stepStart));
             stepStart = System.currentTimeMillis();
 
             INDArray J = trainStep.getCost().add(predictedScores.mul(predictedScores).mul(this.lambda));
@@ -107,7 +107,7 @@ public class Trainer {
             INDArray grad = calculateGradient(featureMatrix, trainingScores, predictedScores, queryIds,
                     protectedElementFeature, dataPerQueryPredicted);
 
-            LOGGER.info(" grad: " + (System.currentTimeMillis() - stepStart));
+            LOGGER.info(String.format("Gradient computed in %d ms", (System.currentTimeMillis() - stepStart)));
 
             //add additional items in trainStep
             trainStep.setOmega(omega);
@@ -125,7 +125,7 @@ public class Trainer {
             this.log.add(trainStep);
 
             // log iteration
-            LOGGER.info("Iteration-" + t +":" + (System.currentTimeMillis() - startTime));
+            LOGGER.info(String.format("Iteration %d done in %d ms", t, (System.currentTimeMillis() - startTime)));
 
         }
 
@@ -160,13 +160,13 @@ public class Trainer {
             //L2
             long stepTime = System.currentTimeMillis();
             if(i % 100 == 0) {
-                LOGGER.info(" grad-step-1:" + (System.currentTimeMillis()-stepTime));
+                LOGGER.info(String.format("Gradient Step 1 computed in %d ms", (System.currentTimeMillis()-stepTime)));
                 stepTime = System.currentTimeMillis();
             }
             double l2 = 1.0 / Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores)))
                     .sumNumber().doubleValue();
             if(i % 100 == 0) {
-                LOGGER.info(" grad-step-2:" + (System.currentTimeMillis()-stepTime));
+                LOGGER.info(String.format("Gradient Step 2 computed in %d ms", (System.currentTimeMillis()-stepTime)));
                 stepTime = System.currentTimeMillis();
             }
 
@@ -175,7 +175,7 @@ public class Trainer {
                     .mmul(Transforms.exp(dataPerQueryPredicted.get(keyGen(q, predictedScores))))
                     .mul(l2);
             if(i % 100 == 0) {
-                LOGGER.info(" grad-step-3:" + (System.currentTimeMillis()-stepTime));
+                LOGGER.info(String.format("Gradient Step 3 computed in %d ms", (System.currentTimeMillis()-stepTime)));
                 stepTime = System.currentTimeMillis();
             }
             //L1
@@ -187,7 +187,7 @@ public class Trainer {
             //L deriv
             res = res.div(Math.log(predictedScores.length()));
             if(i % 100 == 0) {
-                LOGGER.info(" grad-step-4:" + (System.currentTimeMillis()-stepTime));
+                LOGGER.info(String.format("Gradient Step 4 computed in %d ms", (System.currentTimeMillis()-stepTime)));
                 stepTime = System.currentTimeMillis();
             }
             if(!this.noExposure) {
@@ -197,8 +197,7 @@ public class Trainer {
                         .mul(exposureDiff(predictedScores, queryIds, q, protectedIdxs)).transpose());
             }
             if(i % 100 == 0) {
-                LOGGER.info(" grad-step-5:" + (System.currentTimeMillis()-stepTime));
-                stepTime = System.currentTimeMillis();
+                LOGGER.info(String.format("Gradient Step 5 computed in %d ms", (System.currentTimeMillis()-stepTime)));
             }
             gradient.putRow(i, res);
         });
@@ -225,7 +224,6 @@ public class Trainer {
                     predictionsGroup.getProtectedItemsPerQuery(),
                     predictionsGroup.getJudgementsPerQuery());
 
-//            return u2.sub(u3);
             this.normalizedToppProtDerivPerGroupDiffCache.put(key, u2.sub(u3));
         }
 //

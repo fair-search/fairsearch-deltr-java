@@ -59,8 +59,7 @@ publishing {
         mavenJava(MavenPublication) {
             groupId 'com.github.fair-search'
             artifactId 'fairsearchdeltr-java'
-            version '1.0.0'
-
+            version '0.0.1'
             from components.java
         }
     }
