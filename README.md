@@ -11,13 +11,13 @@ You can import the library with maven in your `pom.xml` file:
 ```xml
 <dependency>
   <groupId>com.github.fair-search</groupId>
-  <artifactId>fairsearchdeltr-java</artifactId>
-  <version>1.0.1</version>
+  <artifactId>fairsearch-deltr</artifactId>
+  <version>1.0.2</version>
 </dependency>
 ```
 or, if you are using Gradle, in your `build.gradle` file add this in the `dependencies` block:
 ```gradle
-compile "com.github.fair-search:fairsearchdeltr-java:1.0.1"
+compile "com.github.fair-search:fairsearch-deltr:1.0.2"
 ```
 
 And, that's it!

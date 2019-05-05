@@ -13,7 +13,7 @@ buildscript {
 }
 
 group 'com.github.fair-search'
-version '1.0.1'
+version '1.0.2'
 
 apply plugin: 'java'
 apply plugin: 'maven-publish'
@@ -59,7 +59,7 @@ publishing {
         mavenJava(MavenPublication) {
             groupId 'com.github.fair-search'
             artifactId 'fairsearch-deltr'
-            version '1.0.1'
+            version '1.0.2'
             from components.java
         }
     }
