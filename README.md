@@ -30,7 +30,7 @@ Add the JAR file to the build path of your project and you are *set*. The key me
 The library contains sufficient Java doc for each of the functions.
 
 ## Sample usage
-Creating and analyzing mtables:
+Train and test a model:
 
 ### Train a model
 
@@ -193,8 +193,8 @@ The class is a representation of the parameters in each step of the training. Th
 
 ## Development
 
-1. Clone this repository `git clone https://github.com/fair-search/fairsearchdeltr-python`
-2. Change directory to the directory where you cloned the repository `cd WHERE_ITS_DOWNLOADED/fairsearchdeltr-python`
+1. Clone this repository `git clone https://github.com/fair-search/fairsearchdeltr-java`
+2. Change directory to the directory where you cloned the repository `cd WHERE_ITS_DOWNLOADED/fairsearchdeltr-java`
 3. Use any IDE to work with the code
 
 If you want to make your own builds you can do that with the Gradle wrapper:
