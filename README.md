@@ -215,7 +215,8 @@ Just run:
 ```
 ./gradlew clean check
 ```
-*Note*: Due to the high volume of the datasets, the tests take a bit *longer* time to execute. Also, because there is a *randomness* factor involved in 
+*Note*: Due to the high volume of the datasets, the tests take a bit *longer* time to execute. 
+It takes approx. 30 mins on a laptop with an Intel i7-5500U CPU and 8GB memory. Also, because there is a *randomness* factor involved in 
 the tests, it can happen that (very rarely) they fail sometimes.  
 
 ## Credits
