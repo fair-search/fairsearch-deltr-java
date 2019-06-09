@@ -231,7 +231,7 @@ This library was developed by [Ivan Kitanovski](http://ivankitanovski.com/) base
 ## See also
 
 You can also see the [DELTR for ElasticSearch](https://github.com/fair-search/fairsearch-deltr-for-elasticsearch)
- and [DELTR Python library](https://github.com/fair-search/fairsearchdeltr-python).
+ and [DELTR Python library](https://github.com/fair-search/fairsearch-deltr-python).
 
 
 
