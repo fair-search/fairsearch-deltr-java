@@ -226,7 +226,7 @@ The DELTR algorithm is described in this paper:
 A Learning to Rank Approach](https://doi.org/10.1145/3132847.3132938)." preprint arXiv:1805.08716 (2018).
 
 This library was developed by [Ivan Kitanovski](http://ivankitanovski.com/) based on the paper. See the 
-[license](https://github.com/fair-search/airsearch-deltr-java/blob/master/LICENSE) file for more information.
+[license](https://github.com/fair-search/fairsearch-deltr-java/blob/master/LICENSE) file for more information.
 
 For any questions contact [Mieke Zehlike](https://de.linkedin.com/in/meike-zehlike-366bba131).
 
