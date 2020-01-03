@@ -228,7 +228,7 @@ A Learning to Rank Approach](https://arxiv.org/abs/1805.08716)." preprint arXiv:
 This library was developed by [Ivan Kitanovski](http://ivankitanovski.com/) based on the paper. See the 
 [license](https://github.com/fair-search/fairsearch-deltr-java/blob/master/LICENSE) file for more information.
 
-For any questions contact [Mieke Zehlike](https://de.linkedin.com/in/meike-zehlike-366bba131).
+For any questions contact [Meike Zehlike](https://de.linkedin.com/in/meike-zehlike-366bba131).
 
 ## See also
 
