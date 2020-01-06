@@ -38,6 +38,7 @@ You need to train the model before it can rank documents.
 ```java
 package com.github.fairsearch.deltr;
 
+import com.github.fairsearch.deltr.Deltr;
 import com.github.fairsearch.deltr.models.DeltrDoc;
 import com.github.fairsearch.deltr.models.DeltrDocImpl;
 import com.github.fairsearch.deltr.models.DeltrTopDocs;
@@ -61,38 +62,38 @@ public class HelloWorld {
         // item 1
         DeltrDoc item1 = new DeltrDocImpl(1, 1);
         // add the features to the document (featureName, featureValue, isProtected - since this is a protected feature)
-        item1.put("f0", 1.0, true);
+        item1.put("f0", true);
         // add the features to the document (featureName, featureValue)
         item1.put("f1", 0.962650646167003);
 
         // item 2
         DeltrDoc item2 = new DeltrDocImpl(2, 0.98f);
-        item2.put("f0", 0.0, false);
+        item2.put("f0", false);
         item2.put("f1", 0.940172822166108);
 
         // item 3
         DeltrDoc item3 = new DeltrDocImpl(3, 0.96f);
-        item3.put("f0", 0.0, false);
+        item3.put("f0", false);
         item3.put("f1", 0.925288002880488);
 
         // item 4
         DeltrDoc item4 = new DeltrDocImpl(2, 0.94f);
-        item4.put("f0", 1.0, true);
+        item4.put("f0", true);
         item4.put("f1", 0.896143226020877);
 
         // item 5
         DeltrDoc item5 = new DeltrDocImpl(3, 0.92f);
-        item5.put("f0", 0.0, false);
+        item5.put("f0", false);
         item5.put("f1", 0.89180775633204);
 
         // item 6
         DeltrDoc item6 = new DeltrDocImpl(3, 0.9f);
-        item6.put("f0", 0.0, false);
+        item6.put("f0", false);
         item6.put("f1", 0.838704766545679);
 
         // add the items in the trainQuery
         DeltrDoc[] docsArr = new DeltrDoc[]{item1, item2, item3, item4, item5, item6};
-        trainQuery.setDocs(docsArr);
+        trainQuery.put(docsArr);
 
         // the trainQuery to the trainSet
         trainSet.add(trainQuery);
@@ -124,32 +125,32 @@ DeltrTopDocs preidictionSet = new DeltrTopDocsImpl(2); // 2 is the question ID
 
 // item 7
 DeltrDoc item7 = new DeltrDocImpl(7, 0.9645f); // the current score is not really important
-item7.put("f0", 0.0, false);
+item7.put("f0", false);
 item7.put("f1", 0.9645);
 
 // item 8
 DeltrDoc item8 = new DeltrDocImpl(8, 0.9524f);
-item8.put("f0", 0.0, false);
+item8.put("f0", false);
 item8.put("f1", 0.9524);
 
 // item 9
 DeltrDoc item9 = new DeltrDocImpl(9, 0.9285f);
-item9.put("f0", 0.0, false);
+item9.put("f0", false);
 item9.put("f1", 0.9285);
 
 // item 10
 DeltrDoc item10 = new DeltrDocImpl(10, 0.8961f);
-item10.put("f0", 0.0, false);
+item10.put("f0", false);
 item10.put("f1", 0.8961);
 
 // item 11
 DeltrDoc item11 = new DeltrDocImpl(11, 0.8911f);
-item11.put("f0", 1.0, true);
+item11.put("f0", true);
 item11.put("f1", 0.8911);
 
 // item 12
 DeltrDoc item12 = new DeltrDocImpl(12, 0.8312f);
-item12.put("f0", 1.0, true);
+item12.put("f0", true);
 item12.put("f1", 0.8312);
 
 //add the items in the set
@@ -223,16 +224,18 @@ the tests, it can happen that (very rarely) they fail sometimes.
 
 The DELTR algorithm is described in this paper:
 
-* Zehlike, Meike, and Carlos Castillo. "[Reducing Disparate Exposure in Ranking:
-A Learning to Rank Approach](https://doi.org/10.1145/3132847.3132938)." arXiv preprint arXiv:1805.08716 (2018).
+* Meike Zehlike, Gina-Theresa Diehn, Carlos Castillo. "[Reducing Disparate Exposure in Ranking:
+A Learning to Rank Approach](https://arxiv.org/abs/1805.08716)." preprint arXiv:1805.08716 (2018).
 
 This library was developed by [Ivan Kitanovski](http://ivankitanovski.com/) based on the paper. See the 
-[license](https://github.com/fair-search/fairsearchdeltr-java/blob/master/LICENSE) file for more information.
+[license](https://github.com/fair-search/fairsearch-deltr-java/blob/master/LICENSE) file for more information.
+
+For any questions contact [Meike Zehlike](https://de.linkedin.com/in/meike-zehlike-366bba131).
 
 ## See also
 
-You can also see the [DELTR plug-in for ElasticSearch](https://github.com/fair-search/fairsearchdeltr-elasticsearch-plugin)
- and [DELTR Python library](https://github.com/fair-search/fairsearchdeltr-python).
+You can also see the [DELTR for ElasticSearch](https://github.com/fair-search/fairsearch-deltr-for-elasticsearch)
+ and [DELTR Python library](https://github.com/fair-search/fairsearch-deltr-python).
 
 
 
